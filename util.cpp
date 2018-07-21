@@ -3,6 +3,7 @@
 #include <png.h>
 #include <malloc.h>
 
+// http://www.labbookpages.co.uk/software/imgProc/libPNG.html
 int writeImage(const char* filename, int width, int height, const char *buffer, const char* title)
 {
     int code = 0;
