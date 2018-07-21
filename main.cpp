@@ -76,7 +76,7 @@ int main(int argc, char **argv) {
     }
     
     // We will actually draw to this frame buffer, not the default one.
-    int width = 200, height = 200;
+    int width = 2000, height = 2000;
     GLuint fbo = SetupRenderTarget(width, height);
     
     // Here we start representing the model. The vertex array holds
@@ -110,14 +110,32 @@ int main(int argc, char **argv) {
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glDisableVertexAttribArray(0);
     
-    // Get the result and dump it.
-    std::uint8_t data[width*height*4];
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    // https://stackoverflow.com/questions/12157646/how-to-render-offscreen-on-opengl/12159293#12159293
+    // Target for reading pixels:
+    GLuint pbo;
+    glGenBuffers(1,&pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, width*height*4, NULL, GL_DYNAMIC_READ);
     
-    writeImage("dump.png", width, height, (const char*)data, "Ashigaru slice");
+    // Get the result and dump it.
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+    
+    // Busy wait for render finish
+    GLsync read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    while (true)
+    {
+        auto wait_state = glClientWaitSync(read_fence, 0, 0);
+        if (wait_state == GL_ALREADY_SIGNALED)
+            break;
+        std::cout << "Waiting..." << std::endl;
+    }
+    
+    const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    
+    writeImage("dump.png", width, height, data, "Ashigaru slice");
     //std::fstream dumpfile("dump.dump", std::fstream::out);
-    //dumpfile.write((char *)data, 100*100*4);
+    //dumpfile.write((char *)data, width*height*4);
     
     std::cout << "Healthy finish!" << std::endl;
     return 0;
