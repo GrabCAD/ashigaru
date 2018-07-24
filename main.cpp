@@ -4,6 +4,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <boost/program_options.hpp>
+
 #include "util.h"
 
 // We are rendering off-screen, but a window is still needed for the context
@@ -56,6 +58,19 @@ GLuint SetupRenderTarget(int width, int height)
 }
 
 int main(int argc, char **argv) {
+	namespace po = boost::program_options;
+
+	po::options_description desc("Allowed options");
+	desc.add_options()
+		("img-size", po::value<int>()->default_value(2048), "Side of square image generated.")
+		("tile-size", po::value<int>()->default_value(1024), "Side of square tile for rendering.")
+	;
+
+	po::variables_map vm;
+	po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::notify(vm);
+
+	// Which vertex attribute is the position?
     const GLuint pos_attribute = 0;
     
     // Initialise GLFW
@@ -76,7 +91,8 @@ int main(int argc, char **argv) {
     }
     
     // We will actually draw to this frame buffer, not the default one.
-    int width = 2000, height = 2000;
+	int width = vm["img-size"].as<int>();
+	int height = width;
     GLuint fbo = SetupRenderTarget(width, height);
     
     // Here we start representing the model. The vertex array holds

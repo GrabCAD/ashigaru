@@ -1,0 +1,17 @@
+# Visual Studio:
+*.suo
+*.pdb
+*.opensdf
+*.sdf
+*.user
+*.log
+*.pch
+*.lastbuildstate
+
+# Build results:
+Ashigaru/Ashigaru/Debug/
+Ashigaru/Ashigaru/Release/
+Ashigaru/Ashigaru/x64/
+Ashigaru/x64/
+packages/
+build/
