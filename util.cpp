@@ -1,7 +1,12 @@
 
+#include "util.h"
+
 #include <stdio.h>
 #include <png.h>
 #include <malloc.h>
+
+#include <utility>
+#include <fstream>
 
 // http://www.labbookpages.co.uk/software/imgProc/libPNG.html
 int writeImage(const char* filename, int width, int height, const char *buffer, const char* title)
@@ -86,4 +91,53 @@ finalise:
    if (row != NULL) free(row);
 
    return code;
+}
+
+/////// Next 3 functions based on https://github.com/dillonhuff/stl_parser   ///////////
+
+float parse_float(std::ifstream& s) {
+	char f_buf[sizeof(float)];
+	s.read(f_buf, 4);
+	float* fptr = (float*)f_buf;
+	return *fptr;
+}
+
+Vertex parse_point(std::ifstream& s) {
+	float x = parse_float(s);
+	float y = parse_float(s);
+	float z = parse_float(s);
+	return Vertex{ { x, y, z } };
+}
+
+std::pair<VertexVec, TriangleVec> readBinarySTL(const char *filename)
+{
+	std::ifstream stl_file(filename, std::ios::in | std::ios::binary);
+	if (!stl_file) 
+		throw std::runtime_error("COULD NOT READ FILE");
+
+	char header_info[80] = "";
+	char n_triangles[4];
+	stl_file.read(header_info, 80);
+	stl_file.read(n_triangles, 4);
+	
+	unsigned int* r = (unsigned int*)n_triangles;
+	unsigned int num_triangles = *r;
+	
+	VertexVec vertices;
+	TriangleVec faces;
+
+	for (unsigned int i = 0; i < num_triangles; i++) 	{
+		auto num_verts = vertices.size();
+		Triangle face = { num_verts, num_verts + 1, num_verts + 2 };
+		faces.push_back(face);
+		
+		auto normal = parse_point(stl_file); // skipping it for now, not needed.
+		auto v1 = parse_point(stl_file);
+		auto v2 = parse_point(stl_file);
+		auto v3 = parse_point(stl_file);
+		vertices.insert(vertices.end(), {v1, v2, v3});
+		char dummy[2];
+		stl_file.read(dummy, 2);
+	}
+	return std::make_pair(std::move(vertices), std::move(faces));
 }
