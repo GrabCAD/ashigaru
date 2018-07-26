@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 
 #include "util.h"
+#include "opengl_utils.h"
 
 // We are rendering off-screen, but a window is still needed for the context
 // creation. There are hints that this is no longer needed in GL 3.3, but that
@@ -33,7 +34,7 @@ bool CreateWindow()
 
 /* SetupRenderTarget() creates a Frame Buffer Object with one
  * RenderBuffer, sized to the given image dimensions. The internal
- * storeage is 32 bit (RGBA).
+ * storage is 32 bit (RGBA).
  * 
  * Arguments:
  * width, height - image dimensions, in [px].
@@ -95,6 +96,9 @@ int main(int argc, char **argv) {
 	int height = width;
     GLuint fbo = SetupRenderTarget(width, height);
     
+	// Create and compile our GLSL program from the shaders
+	GLuint programID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
+
     // Here we start representing the model. The vertex array holds
     // a series of vertex attribute buffers.
     GLuint VertexArrayID;
@@ -121,8 +125,9 @@ int main(int argc, char **argv) {
     // Actual drawing:
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glViewport(0, 0, width, height);
-    glClearColor(0.0, 0.0, 0.0, 0.0);
+    glClearColor(0.0, 0.0, 0.4, 1.0);
     glClear( GL_COLOR_BUFFER_BIT );
+	glUseProgram(programID);
     glDrawArrays(GL_TRIANGLES, 0, 3);
     glDisableVertexAttribArray(0);
     

@@ -68,10 +68,10 @@ int writeImage(const char* filename, int width, int height, const char *buffer, 
     int x, y;
     for (y=0 ; y<height ; y++) {
         for (x=0 ; x<width ; x++) {
-            row[x*4] = buffer[(y*width + x)*4 + 3]; // Alpha 
-            row[x*4 + 1] = buffer[(y*width + x)*4 + 3]; // R
-            row[x*4 + 2] = buffer[(y*width + x)*4 + 3]; // G
-            row[x*4 + 3] = buffer[(y*width + x)*4 + 3]; // B
+            row[x*4] = buffer[(y*width + x)*4 + 0]; // R
+            row[x*4 + 1] = buffer[(y*width + x)*4 + 1]; // G
+            row[x*4 + 2] = buffer[(y*width + x)*4 + 2]; // B
+			row[x * 4 + 3] = buffer[(y*width + x)*4 + 3]; // A
         }
         png_write_row(png_ptr, row);
     }
