@@ -15,10 +15,14 @@ include_directories(${GLFW_INCLUDE_DIRS})
 find_package(PNG REQUIRED)
 include_directories(${PNG_INCLUDE_DIR})
 
-add_executable(ashigaru main.cpp util.cpp)
+find_package(Boost COMPONENTS program_options REQUIRED )
+include_directories( ${Boost_INCLUDE_DIR} )
+
+add_executable(ashigaru main.cpp util.cpp opengl_utils.cpp)
 target_link_libraries(ashigaru ${OPENGL_gl_LIBRARY})
 target_link_libraries(ashigaru ${GLFW_LIBRARIES})
 target_link_libraries(ashigaru ${GLEW_LIBRARIES})
 target_link_libraries(ashigaru ${PNG_LIBRARY})
+target_link_libraries(ashigaru ${Boost_LIBRARIES} )
 
 install(TARGETS ashigaru RUNTIME DESTINATION bin)

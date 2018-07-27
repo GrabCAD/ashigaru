@@ -92,12 +92,12 @@ int main(int argc, char **argv) {
     }
     
     // We will actually draw to this frame buffer, not the default one.
-	int width = vm["img-size"].as<int>();
-	int height = width;
+    int width = vm["img-size"].as<int>();
+    int height = width;
     GLuint fbo = SetupRenderTarget(width, height);
     
-	// Create and compile our GLSL program from the shaders
-	GLuint programID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
+    // Create and compile our GLSL program from the shaders
+    GLuint programID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
 
     // Here we start representing the model. The vertex array holds
     // a series of vertex attribute buffers.
