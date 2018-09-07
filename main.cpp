@@ -59,19 +59,19 @@ GLuint SetupRenderTarget(int width, int height)
 }
 
 int main(int argc, char **argv) {
-	namespace po = boost::program_options;
+    namespace po = boost::program_options;
 
-	po::options_description desc("Allowed options");
-	desc.add_options()
-		("img-size", po::value<int>()->default_value(2048), "Side of square image generated.")
-		("tile-size", po::value<int>()->default_value(1024), "Side of square tile for rendering.")
-	;
+    po::options_description desc("Allowed options");
+    desc.add_options()
+            ("img-size", po::value<int>()->default_value(2048), "Side of square image generated.")
+            ("tile-size", po::value<int>()->default_value(1024), "Side of square tile for rendering.")
+    ;
 
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	po::notify(vm);
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
 
-	// Which vertex attribute is the position?
+    // Which vertex attribute is the position?
     const GLuint pos_attribute = 0;
     
     // Initialise GLFW
@@ -106,30 +106,30 @@ int main(int argc, char **argv) {
     glBindVertexArray(VertexArrayID);
     
     // Positions of the vertices:
-	// Do Q&D size-to-fit just so I can get a fast answer.
-	auto geometry = readBinarySTL("models/crystal.stl");
-	Vertex maxV{ { 0., 0., 0. } }, minV{ { 20000, 20000, 20000 } };
-	for (auto& vertex : geometry.first) // find bounding box
-	{
-		maxV = { {
-				std::max(vertex[0], maxV[0]),
-				std::max(vertex[1], maxV[1]),
-				std::max(vertex[2], maxV[2])
-			} };
-		minV = { {
-				std::min(vertex[0], minV[0]),
-				std::min(vertex[1], minV[1]),
-				std::min(vertex[2], minV[2])
-			} };
-	}
-	for (auto& vertex : geometry.first)
-	{
-		vertex[0] = 2*(vertex[0] - minV[0]) / (maxV[0] - minV[0]) - 1;
-		vertex[1] = 2*(vertex[1] - minV[1]) / (maxV[1] - minV[1]) - 1;
-		vertex[2] = 2*(vertex[2] - minV[2]) / (maxV[2] - minV[2]) - 1;
-	}
-	GLfloat* positions = (float *)geometry.first.data();
-	
+    // Do Q&D size-to-fit just so I can get a fast answer.
+    auto geometry = readBinarySTL("models/crystal.stl");
+    Vertex maxV{ { 0., 0., 0. } }, minV{ { 20000, 20000, 20000 } };
+    for (auto& vertex : geometry.first) // find bounding box
+    {
+        maxV = { {
+            std::max(vertex[0], maxV[0]),
+            std::max(vertex[1], maxV[1]),
+            std::max(vertex[2], maxV[2])
+        } };
+        minV = { {
+            std::min(vertex[0], minV[0]),
+            std::min(vertex[1], minV[1]),
+            std::min(vertex[2], minV[2])
+        } };
+    }
+    for (auto& vertex : geometry.first)
+    {
+            vertex[0] = 2*(vertex[0] - minV[0]) / (maxV[0] - minV[0]) - 1;
+            vertex[1] = 2*(vertex[1] - minV[1]) / (maxV[1] - minV[1]) - 1;
+            vertex[2] = 2*(vertex[2] - minV[2]) / (maxV[2] - minV[2]) - 1;
+    }
+    GLfloat* positions = (float *)geometry.first.data();
+    
     GLuint PosBufferID;
     glGenBuffers(1, &PosBufferID);
     glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
@@ -145,8 +145,8 @@ int main(int argc, char **argv) {
     glViewport(0, 0, width, height);
     glClearColor(0.0, 0.0, 0.4, 1.0);
     glClear( GL_COLOR_BUFFER_BIT );
-	glUseProgram(programID);
-	glDrawArrays(GL_TRIANGLES, 0, geometry.first.size());
+    glUseProgram(programID);
+    gDlrawArrays(GL_TRIANGLES, 0, geometry.first.size());
     glDisableVertexAttribArray(0);
     
     // https://stackoverflow.com/questions/12157646/how-to-render-offscreen-on-opengl/12159293#12159293
