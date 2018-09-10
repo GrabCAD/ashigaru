@@ -9,7 +9,7 @@
 #include <fstream>
 
 // http://www.labbookpages.co.uk/software/imgProc/libPNG.html
-int writeImage(const char* filename, int width, int height, const char *buffer, const char* title)
+int writeImage(const char* filename, int width, int height, ImageType type, const char *buffer, const char* title)
 {
     int code = 0;
     FILE *fp = NULL;
@@ -50,11 +50,21 @@ int writeImage(const char* filename, int width, int height, const char *buffer, 
    
    png_init_io(png_ptr, fp);
 
-   // Write header (8 bit colour depth)
-   png_set_IHDR(png_ptr, info_ptr, width, height,
-         8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
-         PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
-
+   // Write header (8 bit colour depth, 16-bit gray depth)
+   unsigned int pixel_size;
+   if (type == ImageType::Color) {
+      png_set_IHDR(png_ptr, info_ptr, width, height,
+        8, PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+      pixel_size = 4;
+   }
+   else {
+      png_set_IHDR(png_ptr, info_ptr, width, height,
+        16, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
+        PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+      pixel_size = 2;
+   }
+   
    // Set title
    if (title != NULL) {
       png_text title_text;
@@ -66,17 +76,21 @@ int writeImage(const char* filename, int width, int height, const char *buffer, 
 
    png_write_info(png_ptr, info_ptr);
    
-    // Allocate memory for one row (3 bytes per pixel - RGB)
-    row = (png_bytep) malloc(4 * width * sizeof(png_byte));
+    // Allocate memory for one row
+    row = (png_bytep) malloc(pixel_size * width * sizeof(png_byte));
 
     // Write image data
-    int x, y;
-    for (y=0 ; y<height ; y++) {
-        for (x=0 ; x<width ; x++) {
-            row[x*4] = buffer[(y*width + x)*4 + 0]; // R
-            row[x*4 + 1] = buffer[(y*width + x)*4 + 1]; // G
-            row[x*4 + 2] = buffer[(y*width + x)*4 + 2]; // B
-			row[x * 4 + 3] = buffer[(y*width + x)*4 + 3]; // A
+    for (int y=0 ; y<height ; y++) {
+        if (type == ImageType::Color)
+            std::copy(&(buffer[y*width*pixel_size]), &(buffer[(y + 1)*width*pixel_size]), row);
+        else { 
+            // One little / two litte / three little endians :)
+            // The data to the PNG library hyas to be big-endian.
+            for (int x = 0; x < width; ++x) {
+                unsigned short grayval = ((unsigned short *)buffer)[y*width + x];
+                row[x*2] = grayval >> 8;
+                row[x*2 + 1] = grayval & 0xFF;
+            }
         }
         png_write_row(png_ptr, row);
     }

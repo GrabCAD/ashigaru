@@ -63,10 +63,9 @@ int main(int argc, char **argv) {
         return -1;
     }
     
-    // We will actually draw to this frame buffer, not the default one.
+    // A shaderProgram is responsible for drawing into its own frame buffer.
     unsigned int width = vm["img-size"].as<unsigned int>();
     unsigned int height = width;
-    
     auto program = Ashigaru::TestShaderProgram(width, height);
 
     // Here we start representing the model. The vertex array holds
@@ -120,9 +119,21 @@ int main(int argc, char **argv) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, res[0].second);
     const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
     
-    writeImage("dump.png", width, height, data, "Ashigaru slice");
-    //std::fstream dumpfile("dump.dump", std::fstream::out);
-    //dumpfile.write((char *)data, width*height*4);
+    writeImage("dump.png", width, height, ImageType::Color, data, "Ashigaru slice");
+    
+    read_fence = res[1].first;
+    while (true)
+    {
+        auto wait_state = glClientWaitSync(read_fence, 0, 0);
+        if (wait_state == GL_ALREADY_SIGNALED)
+            break;
+        
+    }
+    
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, res[1].second);
+    data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+    
+    writeImage("depth.png", width, height, ImageType::Gray, data, "Ashigaru depth");
     
     std::cout << "Healthy finish!" << std::endl;
     return 0;

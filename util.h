@@ -5,7 +5,8 @@
 #include <vector>
 #include <array>
 
-int writeImage(const char* filename, int width, int height, const char *buffer, const char* title);
+enum class ImageType {Color, Gray};
+int writeImage(const char* filename, int width, int height, ImageType type, const char *buffer, const char* title);
 
 using Vertex = std::array<float, 3>;
 using VertexVec = std::vector<Vertex>;
