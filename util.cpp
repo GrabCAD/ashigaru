@@ -120,7 +120,7 @@ Vertex parse_point(std::ifstream& s) {
 	float x = parse_float(s);
 	float y = parse_float(s);
 	float z = parse_float(s);
-	return Vertex{ { x, y, z } };
+	return Vertex{ x, y, z };
 }
 
 std::pair<VertexVec, TriangleVec> readBinarySTL(const char *filename)

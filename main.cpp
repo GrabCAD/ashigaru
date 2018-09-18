@@ -7,6 +7,7 @@
 #include <boost/program_options.hpp>
 
 #include "util.h"
+#include "geometry.h"
 #include "opengl_utils.h"
 #include "shader_program.h"
 
@@ -66,7 +67,9 @@ int main(int argc, char **argv) {
     // A shaderProgram is responsible for drawing into its own frame buffer.
     unsigned int width = vm["img-size"].as<unsigned int>();
     unsigned int height = width;
-    auto program = Ashigaru::TestShaderProgram(width, height);
+    unsigned int tile_width = vm["tile-size"].as <unsigned int>();
+    unsigned int tile_height = tile_width;
+    auto program = Ashigaru::TestShaderProgram(tile_width, tile_height);
 
     // Here we start representing the model. The vertex array holds
     // a series of vertex attribute buffers.
@@ -77,26 +80,28 @@ int main(int argc, char **argv) {
     // Positions of the vertices:
     // Do Q&D size-to-fit just so I can get a fast answer.
     auto geometry = readBinarySTL("models/crystal.stl");
-    Vertex maxV{ { 0., 0., 0. } }, minV{ { 20000, 20000, 20000 } };
+    Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
     for (auto& vertex : geometry.first) // find bounding box
     {
-        maxV = { {
+        maxV = {
             std::max(vertex[0], maxV[0]),
             std::max(vertex[1], maxV[1]),
             std::max(vertex[2], maxV[2])
-        } };
-        minV = { {
+        };
+        minV = {
             std::min(vertex[0], minV[0]),
             std::min(vertex[1], minV[1]),
             std::min(vertex[2], minV[2])
-        } };
+        };
     }
-    for (auto& vertex : geometry.first)
-    {
-            vertex[0] = 2*(vertex[0] - minV[0]) / (maxV[0] - minV[0]) - 1;
-            vertex[1] = 2*(vertex[1] - minV[1]) / (maxV[1] - minV[1]) - 1;
-            vertex[2] = 2*(vertex[2] - minV[2]) / (maxV[2] - minV[2]) - 1;
+    glm::vec3 dims = maxV - minV;
+    glm::vec3 scale_factor = {width, width, width};
+    for (auto& vertex : geometry.first) {
+        vertex = (vertex - minV) / dims * scale_factor;
+        std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
     }
+    program.PrepareTile(Ashigaru::Rect<unsigned int>{tile_width*2, tile_width*2, tile_width, tile_width});
+    
     GLfloat* positions = (float *)geometry.first.data();
     
     GLuint PosBufferID;
@@ -119,7 +124,7 @@ int main(int argc, char **argv) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, res[0].second);
     const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
     
-    writeImage("dump.png", width, height, ImageType::Color, data, "Ashigaru slice");
+    writeImage("dump.png", tile_width, tile_height, ImageType::Color, data, "Ashigaru slice");
     
     read_fence = res[1].first;
     while (true)
@@ -133,7 +138,7 @@ int main(int argc, char **argv) {
     glBindBuffer(GL_PIXEL_PACK_BUFFER, res[1].second);
     data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
     
-    writeImage("depth.png", width, height, ImageType::Gray, data, "Ashigaru depth");
+    writeImage("depth.png", tile_width, tile_height, ImageType::Gray, data, "Ashigaru depth");
     
     std::cout << "Healthy finish!" << std::endl;
     return 0;

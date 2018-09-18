@@ -3,7 +3,11 @@
  * [1] // https://stackoverflow.com/questions/12157646/how-to-render-offscreen-on-opengl/12159293#12159293
  */
 
+#include <glm/gtc/matrix_transform.hpp>
 #include "shader_program.h"
+#include "geometry.h"
+
+#include <iostream>
 
 using namespace Ashigaru;
 
@@ -37,6 +41,39 @@ GLuint TestShaderProgram::SetupRenderTarget(unsigned int width, unsigned int hei
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     return fbo;
+}
+
+void print_mat(const glm::mat4& PV) 
+{
+    std::cout << PV[0][0] << " " << PV[0][1] << " " << PV[0][2] << " " << PV[0][3] << std::endl;
+    std::cout << PV[1][0] << " " << PV[1][1] << " " << PV[1][2] << " " << PV[1][3] << std::endl;
+    std::cout << PV[2][0] << " " << PV[2][1] << " " << PV[2][2] << " " << PV[2][3] << std::endl;
+    std::cout << PV[3][0] << " " << PV[3][1] << " " << PV[3][2] << " " << PV[3][3] << std::endl;    
+}
+
+bool Ashigaru::TestShaderProgram::PrepareTile(Rect<unsigned int> tile_rect) {
+    Rect<unsigned int>::Corner tl = tile_rect.getTopLeft();
+    Rect<unsigned int>::Corner br = tile_rect.getBottomRight();
+    unsigned int tw = tile_rect.Width();
+    unsigned int th = tile_rect.Height();
+    std::cout << (float)(-tw/2) << " . " << (float)(tw/2) << " . " << (float)(-th/2) << " . " << (float)(th/2) << std::endl;
+    m_tile_projection = glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f);
+    
+    glm::mat4 view = glm::lookAt(
+        glm::vec3{br[1] + tw/2, br[0] + th/2, 0},
+        glm::vec3{br[1] + tw/2, br[0] + th/2, 10000},
+        glm::vec3{0, 1, 0}
+    );
+    glm::mat4 PV = m_tile_projection*view;
+    
+    print_mat(view);
+    print_mat(m_tile_projection);
+    
+    glUseProgram(m_program_ID);
+    GLuint MatrixID = glGetUniformLocation(m_program_ID, "projection");
+    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &PV[0][0]);
+    
+    return true;
 }
 
 std::vector<RenderAsyncResult> TestShaderProgram::StartRender(GLuint PosBufferID, size_t num_verts) {

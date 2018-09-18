@@ -18,6 +18,11 @@ include_directories(${PNG_INCLUDE_DIR})
 find_package(Boost COMPONENTS program_options REQUIRED )
 include_directories( ${Boost_INCLUDE_DIR} )
 
+find_package(glm REQUIRED)
+include_directories(${GLM_INCLUDE_DIRS})
+link_directories(${GLM_LIBRARY_DIRS})
+add_definitions(${GLM_DEFINITIONS})
+
 add_executable(ashigaru main.cpp util.cpp opengl_utils.cpp shader_program.cpp)
 target_link_libraries(ashigaru ${OPENGL_gl_LIBRARY})
 target_link_libraries(ashigaru ${GLFW_LIBRARIES})
