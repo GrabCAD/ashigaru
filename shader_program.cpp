@@ -56,7 +56,6 @@ bool Ashigaru::TestShaderProgram::PrepareTile(Rect<unsigned int> tile_rect) {
     Rect<unsigned int>::Corner br = tile_rect.getBottomRight();
     unsigned int tw = tile_rect.Width();
     unsigned int th = tile_rect.Height();
-    std::cout << (float)(-tw/2) << " . " << (float)(tw/2) << " . " << (float)(-th/2) << " . " << (float)(th/2) << std::endl;
     m_tile_projection = glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f);
     
     glm::mat4 view = glm::lookAt(
@@ -64,10 +63,13 @@ bool Ashigaru::TestShaderProgram::PrepareTile(Rect<unsigned int> tile_rect) {
         glm::vec3{br[1] + tw/2, br[0] + th/2, 10000},
         glm::vec3{0, 1, 0}
     );
-    glm::mat4 PV = m_tile_projection*view;
     
-    print_mat(view);
-    print_mat(m_tile_projection);
+    // Since we look from below, but want the image as if viewed from above,
+    // We just mirror the X axis of the final image, so this is applied after 
+    // the orthographic projection.
+    glm::mat4 mirror_image = glm::scale(glm::mat4(1.0f), glm::vec3{-1, 1, 1});
+    
+    glm::mat4 PV = mirror_image*m_tile_projection*view;
     
     glUseProgram(m_program_ID);
     GLuint MatrixID = glGetUniformLocation(m_program_ID, "projection");
