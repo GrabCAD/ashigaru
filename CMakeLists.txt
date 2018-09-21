@@ -23,11 +23,15 @@ include_directories(${GLM_INCLUDE_DIRS})
 link_directories(${GLM_LIBRARY_DIRS})
 add_definitions(${GLM_DEFINITIONS})
 
-add_executable(ashigaru main.cpp util.cpp opengl_utils.cpp shader_program.cpp)
+find_package(Threads)
+
+add_executable(ashigaru main.cpp util.cpp opengl_utils.cpp shader_program.cpp tiled_view.cpp)
+
 target_link_libraries(ashigaru ${OPENGL_gl_LIBRARY})
 target_link_libraries(ashigaru ${GLFW_LIBRARIES})
 target_link_libraries(ashigaru ${GLEW_LIBRARIES})
 target_link_libraries(ashigaru ${PNG_LIBRARY})
 target_link_libraries(ashigaru ${Boost_LIBRARIES} )
+target_link_libraries(ashigaru ${CMAKE_THREAD_LIBS_INIT})
 
 install(TARGETS ashigaru RUNTIME DESTINATION bin)

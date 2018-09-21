@@ -9,7 +9,7 @@
 #include "util.h"
 #include "geometry.h"
 #include "opengl_utils.h"
-#include "shader_program.h"
+#include "tiled_view.h"
 
 // We are rendering off-screen, but a window is still needed for the context
 // creation. There are hints that this is no longer needed in GL 3.3, but that
@@ -69,8 +69,7 @@ int main(int argc, char **argv) {
     unsigned int height = width;
     unsigned int tile_width = vm["tile-size"].as <unsigned int>();
     unsigned int tile_height = tile_width;
-    auto program = Ashigaru::TestShaderProgram(tile_width, tile_height);
-
+    
     // Here we start representing the model. The vertex array holds
     // a series of vertex attribute buffers.
     GLuint VertexArrayID;
@@ -100,45 +99,15 @@ int main(int argc, char **argv) {
         vertex = (vertex - minV) / dims * scale_factor;
         std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
     }
-    program.PrepareTile(Ashigaru::Rect<unsigned int>{tile_width*2, tile_width*2, tile_width, tile_width});
     
-    GLfloat* positions = (float *)geometry.first.data();
+    Ashigaru::TiledView tv(width, height, tile_width, tile_height, geometry);
+    std::vector<std::future<std::unique_ptr<char>>> res = tv.StartRender();
     
-    GLuint PosBufferID;
-    glGenBuffers(1, &PosBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
-    glBufferData(GL_ARRAY_BUFFER, geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+    std::unique_ptr<char> data = std::move(res[0].get());
+    writeImage("dump.png", width, height, ImageType::Color, data.get(), "Ashigaru slice");
     
-    auto res = program.StartRender(PosBufferID, geometry.first.size());
-    
-    // Busy wait for render finish
-    GLsync read_fence = res[0].first;
-    while (true)
-    {
-        auto wait_state = glClientWaitSync(read_fence, 0, 0);
-        if (wait_state == GL_ALREADY_SIGNALED)
-            break;
-        std::cout << "Waiting..." << std::endl;
-    }
-    
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, res[0].second);
-    const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    
-    writeImage("dump.png", tile_width, tile_height, ImageType::Color, data, "Ashigaru slice");
-    
-    read_fence = res[1].first;
-    while (true)
-    {
-        auto wait_state = glClientWaitSync(read_fence, 0, 0);
-        if (wait_state == GL_ALREADY_SIGNALED)
-            break;
-        
-    }
-    
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, res[1].second);
-    data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    
-    writeImage("depth.png", tile_width, tile_height, ImageType::Gray, data, "Ashigaru depth");
+    data = res[1].get();
+    writeImage("depth.png", width, height, ImageType::Gray, data.get(), "Ashigaru depth");
     
     std::cout << "Healthy finish!" << std::endl;
     return 0;

@@ -123,7 +123,7 @@ Vertex parse_point(std::ifstream& s) {
 	return Vertex{ x, y, z };
 }
 
-std::pair<VertexVec, TriangleVec> readBinarySTL(const char *filename)
+Model readBinarySTL(const char *filename)
 {
 	std::ifstream stl_file(filename, std::ios::in | std::ios::binary);
 	if (!stl_file) 

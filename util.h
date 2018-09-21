@@ -13,7 +13,8 @@ using Vertex = glm::vec3;
 using VertexVec = std::vector<Vertex>;
 using Triangle = std::array<unsigned int, 3>;
 using TriangleVec = std::vector<Triangle>;
+using Model = std::pair<VertexVec, TriangleVec>;
 
-std::pair<VertexVec, TriangleVec> readBinarySTL(const char *filename);
+Model readBinarySTL(const char *filename);
 
 #endif
