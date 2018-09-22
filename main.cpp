@@ -11,29 +11,6 @@
 #include "opengl_utils.h"
 #include "tiled_view.h"
 
-// We are rendering off-screen, but a window is still needed for the context
-// creation. There are hints that this is no longer needed in GL 3.3, but that
-// windows still wants it. So just in case. We generate a window of size 1x1 px,
-// and set it to be hidden.
-bool CreateWindow()
-{
-    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.3
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL 
-
-    // Open a window and create its OpenGL context
-    GLFWwindow* window; 
-    window = glfwCreateWindow(1, 1, "Ashigaru dummy window", NULL, NULL);
-    if( window == NULL ){
-        std::cerr << "Failed to open GLFW window." << std::endl;
-        glfwTerminate();
-        return false;
-    }
-    glfwMakeContextCurrent(window);
-    return true;
-}
-
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
 
@@ -55,26 +32,11 @@ int main(int argc, char **argv) {
         return -1;
     }
     
-    if (!CreateWindow())
-        return -1;
-    
-    if( glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW\n";
-        return -1;
-    }
-    
     // A shaderProgram is responsible for drawing into its own frame buffer.
     unsigned int width = vm["img-size"].as<unsigned int>();
     unsigned int height = width;
     unsigned int tile_width = vm["tile-size"].as <unsigned int>();
     unsigned int tile_height = tile_width;
-    
-    // Here we start representing the model. The vertex array holds
-    // a series of vertex attribute buffers.
-    GLuint VertexArrayID;
-    glGenVertexArrays(1, &VertexArrayID);
-    glBindVertexArray(VertexArrayID);
     
     // Positions of the vertices:
     // Do Q&D size-to-fit just so I can get a fast answer.

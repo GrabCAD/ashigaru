@@ -2,6 +2,9 @@
 
 #include <vector>
 #include <future>
+#include <thread>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #include "opengl_utils.h"
 #include "util.h"
@@ -31,10 +34,6 @@ namespace Ashigaru {
      */
     void CopyTileToResult(GLuint pbo, Rect<unsigned int> tile_rect, char *img_buf, unsigned int stride, unsigned int elem_size);
     
-    std::unique_ptr<char> PlaceTiles(std::vector<RenderAsyncResult> tiles, std::vector<Rect<unsigned int>> tile_rects, 
-        unsigned int image_width, unsigned int image_height, unsigned int elem_size
-    );
-    
     /* This class should hold all persistent tile data. For example, the
      * per-tile VBOs and per-tile model lookup database that allows only
      * parts of a VBO to be used.
@@ -44,6 +43,11 @@ namespace Ashigaru {
         unsigned int m_tile_width, m_tile_height;
         Model m_geometry; // reference? moved inside? Will decide later.
         
+        std::thread m_render_thread;
+        std::vector<std::promise<std::unique_ptr<char>>> m_promises; 
+        
+        void RenderThreadFunction();
+        
     public:
         // For now, assume integer number of tiles in each dimension.
         // The neccessry adjustments to non-integer will wait.
@@ -52,6 +56,11 @@ namespace Ashigaru {
             unsigned int tile_width, unsigned int tile_height,
             Model geometry
         );
+        
+        ~TiledView() {
+            if (m_render_thread.joinable())
+                m_render_thread.join();
+        }
         
         /* This generates the GPU instructions for all tiles, and returns future
          * pointers to the images generated. The future becomes valid after all tiles
