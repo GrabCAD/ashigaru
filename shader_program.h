@@ -21,12 +21,28 @@ namespace Ashigaru {
     */
     class ShaderProgram {
     public:
+        /* No OpenGL actions can happen outside the render thread. This is a problem
+        * when we want to do things like construction and whatever in the user thread.
+        * Since we want the user to control the render *instructions* which this
+        * interface embodies, there will be no template magic or other kind of wizardry
+        * to construct this elsewhere. 
+        * 
+        * Instead, we require the object to be used in this 
+        * way: do whatever non-GL thing you want in the subclass' constructor and other 
+        * new methods. Methods defined in this interface can use OpenGL but can only
+        * be called in the render thread. The render thread must call InitGL once
+        * before usage.
+        */
+        virtual void InitGL() = 0;
+        
         /* All subclasses are expected to work within a tiling loop. Therefore,
         * this step is here for setting tile parameters before rendering.
         * the implementation can set uniforms or do whatever is necessary.
         * If a child needs more uniforms then those describing the tile,
         * it should implement its own functions for setting them, as in this
         * case the user will be handling a child class directly.
+        * If you're running a non-tiled render, just think of this one as 
+        * `PrepareImage()`, ok?
         * 
         * Arguments: 
         * tile_rect - defines the position and size of the tile to prepare.
@@ -67,6 +83,8 @@ namespace Ashigaru {
         
     public:
         TestShaderProgram(unsigned int width, unsigned int height);
+        
+        virtual void InitGL() override;
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) override;
         virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) override;
         

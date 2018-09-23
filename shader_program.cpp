@@ -13,10 +13,13 @@ using namespace Ashigaru;
 
 TestShaderProgram::TestShaderProgram(unsigned int width, unsigned int height) 
     : m_width{width}, m_height{height}
+{}
+
+void TestShaderProgram::InitGL()
 {
     // Create and compile our GLSL program from the shaders
     m_program_ID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
-    m_fbo = SetupRenderTarget(width, height);
+    m_fbo = SetupRenderTarget(m_width, m_height);    
 }
 
 GLuint TestShaderProgram::SetupRenderTarget(unsigned int width, unsigned int height)

@@ -50,9 +50,13 @@ bool Ashigaru::CopyTileToResult(const char* source, Rect<unsigned int> tile_rect
 }
 
 TiledView::TiledView(
-    unsigned int full_width, unsigned int full_height, unsigned int tile_width, unsigned int tile_height, Model geometry
+    ShaderProgram& render_action,
+    unsigned int full_width, unsigned int full_height, unsigned int tile_width, unsigned int tile_height, 
+    Model geometry
 )
-    : m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}, m_geometry{geometry} 
+    : m_render_action{render_action},
+      m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}, 
+      m_geometry{geometry} 
 {}
 
 // Each tile result generates a Sync and PBO object. These are stored 
@@ -73,9 +77,9 @@ struct TileJob {
 void TiledView::RenderThreadFunction()
 {
     CreateWindow();
-    TestShaderProgram program{m_tile_width, m_tile_height};
+    m_render_action.InitGL();
     
-    std::vector<unsigned int> output_sizes = program.OutputPixelSizes();
+    std::vector<unsigned int> output_sizes = m_render_action.OutputPixelSizes();
     std::vector<char*> image_bufs(output_sizes.size());
     for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image)
         image_bufs[image] = new char[m_full_height*m_full_width*output_sizes[image]];
@@ -111,8 +115,8 @@ void TiledView::RenderThreadFunction()
                 (wtile)*m_tile_width,
             };
             
-            program.PrepareTile(tile_rect);
-            auto tile_res = program.StartRender(PosBufferID, m_geometry.first.size());
+            m_render_action.PrepareTile(tile_rect);
+            auto tile_res = m_render_action.StartRender(PosBufferID, m_geometry.first.size());
             
             for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
                 tile_jobs.push_back(TileJob{

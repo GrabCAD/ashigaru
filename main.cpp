@@ -62,7 +62,8 @@ int main(int argc, char **argv) {
         std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
     }
     
-    Ashigaru::TiledView tv(width, height, tile_width, tile_height, geometry);
+    Ashigaru::TestShaderProgram program{tile_width, tile_height};
+    Ashigaru::TiledView tv(program, width, height, tile_width, tile_height, geometry);
     std::vector<std::future<std::unique_ptr<char>>> res = tv.StartRender();
     
     std::unique_ptr<char> data = std::move(res[0].get());

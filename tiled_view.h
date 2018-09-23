@@ -42,6 +42,7 @@ namespace Ashigaru {
      * parts of a VBO to be used.
      */
     class TiledView {
+        ShaderProgram& m_render_action;
         unsigned int m_full_width, m_full_height;
         unsigned int m_tile_width, m_tile_height;
         Model m_geometry; // reference? moved inside? Will decide later.
@@ -55,6 +56,7 @@ namespace Ashigaru {
         // For now, assume integer number of tiles in each dimension.
         // The neccessry adjustments to non-integer will wait.
         TiledView(
+            ShaderProgram& render_action,
             unsigned int full_width, unsigned int full_height, 
             unsigned int tile_width, unsigned int tile_height,
             Model geometry
