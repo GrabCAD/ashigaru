@@ -31,8 +31,11 @@ namespace Ashigaru {
      * 
      * Note: obviously, the last two items should be replaces with some 
      *    image class when we get around to it.
+     * 
+     * Returns: 
+     * always true, to signal completion.
      */
-    void CopyTileToResult(GLuint pbo, Rect<unsigned int> tile_rect, char *img_buf, unsigned int stride, unsigned int elem_size);
+    bool CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, char *img_buf, unsigned int stride, unsigned int elem_size);
     
     /* This class should hold all persistent tile data. For example, the
      * per-tile VBOs and per-tile model lookup database that allows only

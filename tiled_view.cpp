@@ -38,16 +38,15 @@ bool CreateWindow()
     return true;
 }
 
-void Ashigaru::CopyTileToResult(GLuint pbo, Rect<unsigned int> tile_rect, char *img_buf, unsigned int stride, unsigned int elem_size)
+bool Ashigaru::CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, char* img_buf, unsigned int stride, unsigned int elem_size)
 {
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
-    const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
-    
     unsigned int tw = tile_rect.Width()*elem_size;
     for (unsigned int row = 0; row < tile_rect.Height(); ++row) {
         unsigned int image_row = row + tile_rect.bottom();
-        std::copy(data + row*tw, data + (row + 1)*tw, img_buf + (image_row*stride + tile_rect.right())*elem_size);
+        std::copy(source + row*tw, source + (row + 1)*tw, img_buf + (image_row*stride + tile_rect.right())*elem_size);
     }
+    
+    return true;
 }
 
 TiledView::TiledView(
@@ -123,7 +122,10 @@ void TiledView::RenderThreadFunction()
         } // end tile.
     }
     
+    
     // Wait for GPU to finish tiles, and send finished tiles to placement.
+    std::vector<std::future<bool>> waiting_copies;
+    
     auto job = tile_jobs.cbegin();
     while(!tile_jobs.empty()) {
         if (job == tile_jobs.cend())
@@ -131,7 +133,13 @@ void TiledView::RenderThreadFunction()
         
         auto wait_state = glClientWaitSync(job->fence, 0, 0);
         if (wait_state == GL_ALREADY_SIGNALED) {
-            CopyTileToResult(job->pbo, job->tile_rect, job->img, job->img_width, job->elem_size);
+            glBindBuffer(GL_PIXEL_PACK_BUFFER, job->pbo);
+            const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
+                
+            waiting_copies.push_back(std::async(
+                std::launch::async, CopyTileToResult, 
+                data, job->tile_rect, job->img, job->img_width, job->elem_size
+            ));
             
             auto erase_pos = job++;
             tile_jobs.erase(erase_pos);
@@ -140,6 +148,10 @@ void TiledView::RenderThreadFunction()
             ++job;
         }
     }
+    
+    // Ensure copies finished:
+    for (auto& job : waiting_copies)
+        job.get();
     
     for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image)
         m_promises[image].set_value(std::move(std::unique_ptr<char>(image_bufs[image])));
