@@ -25,7 +25,9 @@ add_definitions(${GLM_DEFINITIONS})
 
 find_package(Threads)
 
-add_executable(ashigaru main.cpp util.cpp opengl_utils.cpp shader_program.cpp tiled_view.cpp)
+file(GLOB sources "src/*.cpp")
+add_executable(ashigaru ${sources})
+include_directories(include/)
 
 target_link_libraries(ashigaru ${OPENGL_gl_LIBRARY})
 target_link_libraries(ashigaru ${GLFW_LIBRARIES})
