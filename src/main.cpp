@@ -9,7 +9,7 @@
 #include "util.h"
 #include "geometry.h"
 #include "opengl_utils.h"
-#include "tiled_view.h"
+#include "render_server.h"
 
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
@@ -62,10 +62,17 @@ int main(int argc, char **argv) {
         std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
     }
     
-    Ashigaru::TestShaderProgram program{tile_width, tile_height};
-    Ashigaru::TiledView tv(program, width, height, tile_width, tile_height, geometry);
-    std::vector<std::future<std::unique_ptr<char>>> res = tv.StartRender();
+    // Start the render server:
+    Ashigaru::RenderServer server(tile_width, tile_height);
     
+    // Create the view we want to render:
+    Ashigaru::TestShaderProgram program{tile_width, tile_height};
+    auto view = server.RegisterView(program, width, height, geometry).get();
+    
+    // Render slice 0:
+    std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, 0);
+    
+    // wait for results and save them:
     std::unique_ptr<char> data = std::move(res[0].get());
     writeImage("dump.png", width, height, ImageType::Color, data.get(), "Ashigaru slice");
     

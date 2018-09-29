@@ -7,38 +7,28 @@
 
 using namespace Ashigaru;
 
-// We are rendering off-screen, but a window is still needed for the context
-// creation. There are hints that this is no longer needed in GL 3.3, but that
-// windows still wants it. So just in case. We generate a window of size 1x1 px,
-// and set it to be hidden.
-bool CreateWindow()
-{
-    glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // We want OpenGL 3.3
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE); // We don't want the old OpenGL 
-
-    // Open a window and create its OpenGL context
-    GLFWwindow* window; 
-    window = glfwCreateWindow(1, 1, "Ashigaru dummy window", NULL, NULL);
-    if( window == NULL ){
-        std::cerr << "Failed to open GLFW window." << std::endl;
-        glfwTerminate();
-        return false;
-    }
-    glfwMakeContextCurrent(window);
-    
-        
-    if( glewInit() != GLEW_OK)
-    {
-        std::cerr << "Failed to initialize GLEW\n";
-        return false;
-    }
-
-    return true;
-}
-
-bool Ashigaru::CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, char* img_buf, unsigned int stride, unsigned int elem_size)
+/* CopyTileToResult() places a rendering result from a PBO representing a
+* tile into the full image.
+* 
+* Arguments:
+* pbo - the Pixel Buffer Object representing the rendered tile. 
+*    It is assumed that all memory transferred have completed,
+*    whatever the user needs to do to ensure this.
+* tile_rect - the top/left/bottom right locations in the global
+*    XY plane, where this tile views.
+* img_buf - data buffer for the image. Assumed to contain enough
+*    space for all tiles, otherwise it will segfault. Checking
+*    the input is the user's responsibility.
+* stride - how many pixels in a row for the full image.
+* elem_size - number of bytes per element in the pbo.
+* 
+* Note: obviously, the last two items should be replaces with some 
+*    image class when we get around to it.
+* 
+* Returns: 
+* always true, to signal completion.
+*/
+static bool CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, char* img_buf, unsigned int stride, unsigned int elem_size)
 {
     unsigned int tw = tile_rect.Width()*elem_size;
     for (unsigned int row = 0; row < tile_rect.Height(); ++row) {
@@ -49,15 +39,50 @@ bool Ashigaru::CopyTileToResult(const char* source, Rect<unsigned int> tile_rect
     return true;
 }
 
+/* SetPromisesWhenDone() receives a vector of copy-job futures, waits for the 
+ * copies to complete, then sets promises for the images these copies create.
+ * Meant to be called async.
+ * 
+ * Arguments:
+ * waiting_copies - futures from async calls to the tile copy operation.
+ * promises - the promises to set when images are done.
+ * image_bufs - the respective values to set in the promises when the 
+ *      time comes.
+ */
+static void SetPromisesWhenDone(
+    std::shared_ptr<std::vector<std::future<bool>>> waiting_copies, 
+    std::vector<std::promise<std::unique_ptr<char>>>& promises, 
+    std::vector<char*> image_bufs)
+{
+    for (auto& job : *waiting_copies)
+        job.get();
+    
+    for (unsigned int image = 0; image < (unsigned int)image_bufs.size(); ++image)
+        promises[image].set_value(std::unique_ptr<char>(image_bufs[image]));
+}
+
 TiledView::TiledView(
     ShaderProgram& render_action,
     unsigned int full_width, unsigned int full_height, unsigned int tile_width, unsigned int tile_height, 
-    Model geometry
+    Model &geometry
 )
     : m_render_action{render_action},
       m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}, 
       m_geometry{geometry} 
-{}
+{
+    m_render_action.InitGL();
+    
+    // Here we start representing the model. The vertex array holds
+    // a series of vertex attribute buffers.
+    glGenVertexArrays(1, &m_varray);
+    glBindVertexArray(m_varray);
+    
+    // Future: per-tile structures. But for now, all tiles share the same VBO.
+    GLfloat* positions = (float *)m_geometry.first.data();
+    glGenBuffers(1, &m_posbuff);
+    glBindBuffer(GL_ARRAY_BUFFER, m_posbuff);
+    glBufferData(GL_ARRAY_BUFFER, m_geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+}
 
 // Each tile result generates a Sync and PBO object. These are stored 
 // in a tileJob struct together with the necessary tile/image information
@@ -74,11 +99,8 @@ struct TileJob {
     unsigned int elem_size;
 };
 
-void TiledView::RenderThreadFunction()
+void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_ptr<char>>>& promises)
 {
-    CreateWindow();
-    m_render_action.InitGL();
-    
     std::vector<unsigned int> output_sizes = m_render_action.OutputPixelSizes();
     std::vector<char*> image_bufs(output_sizes.size());
     for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image)
@@ -88,27 +110,14 @@ void TiledView::RenderThreadFunction()
     
     unsigned int num_width_tiles = m_full_width / m_tile_width;
     unsigned int num_height_tiles = m_full_height / m_tile_height;
-        
-    // Here we start representing the model. The vertex array holds
-    // a series of vertex attribute buffers.
-    GLuint VertexArrayID;
-    glGenVertexArrays(1, &VertexArrayID);
-    glBindVertexArray(VertexArrayID);
     
-    // All this block should be done in construction phase,
-    // when we prepare per-tile structures. But for now,
-    // all tiles share the same PBO.
-    GLfloat* positions = (float *)m_geometry.first.data();
-    GLuint PosBufferID;
-    glGenBuffers(1, &PosBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
-    glBufferData(GL_ARRAY_BUFFER, m_geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+    glBindVertexArray(m_varray);
     
     // Give the GPU its day's orders:
     for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
         for (unsigned int htile = 0; htile < num_height_tiles; ++htile) 
         {
-            Rect<unsigned int> tile_rect = {
+            Rect<unsigned int> tile_rect {
                 (htile + 1)*m_tile_height, 
                 (wtile + 1)*m_tile_width, 
                 (htile)*m_tile_height, 
@@ -116,7 +125,7 @@ void TiledView::RenderThreadFunction()
             };
             
             m_render_action.PrepareTile(tile_rect);
-            auto tile_res = m_render_action.StartRender(PosBufferID, m_geometry.first.size());
+            auto tile_res = m_render_action.StartRender(m_posbuff, m_geometry.first.size());
             
             for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
                 tile_jobs.push_back(TileJob{
@@ -128,7 +137,8 @@ void TiledView::RenderThreadFunction()
     
     
     // Wait for GPU to finish tiles, and send finished tiles to placement.
-    std::vector<std::future<bool>> waiting_copies;
+    using WaitingVec = std::vector<std::future<bool>>;
+    std::shared_ptr<WaitingVec> waiting_copies = std::make_shared<WaitingVec>();
     
     auto job = tile_jobs.cbegin();
     while(!tile_jobs.empty()) {
@@ -140,7 +150,7 @@ void TiledView::RenderThreadFunction()
             glBindBuffer(GL_PIXEL_PACK_BUFFER, job->pbo);
             const char *data = (char *)glMapBuffer(GL_PIXEL_PACK_BUFFER, GL_READ_ONLY);
                 
-            waiting_copies.push_back(std::async(
+            waiting_copies->push_back(std::async(
                 std::launch::async, CopyTileToResult, 
                 data, job->tile_rect, job->img, job->img_width, job->elem_size
             ));
@@ -153,32 +163,7 @@ void TiledView::RenderThreadFunction()
         }
     }
     
-    // Ensure copies finished:
-    for (auto& job : waiting_copies)
-        job.get();
-    
-    for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image)
-        m_promises[image].set_value(std::move(std::unique_ptr<char>(image_bufs[image])));
-}
-
-std::vector<std::future<std::unique_ptr<char>>> 
-TiledView::StartRender()
-{
-    m_promises.clear();
-    m_promises.push_back(std::promise<std::unique_ptr<char>>{});
-    m_promises.push_back(std::promise<std::unique_ptr<char>>{});
-    
-    std::vector<std::future<std::unique_ptr<char>>> images(m_promises.size());
-    
-    std::transform(
-        m_promises.begin(), m_promises.end(), images.begin(), 
-        [](std::promise<std::unique_ptr<char>>& p) { return p.get_future(); } 
-    );
-    m_render_thread = std::move(std::thread(
-        [this](){
-            RenderThreadFunction();
-        }
-    ));
-    
-    return images;
+    // Ensure copies finished. This can be done async because it has no OpenGL in it.
+    std::async(std::launch::async, 
+        SetPromisesWhenDone, waiting_copies, std::ref(promises), image_bufs);
 }
