@@ -7,20 +7,19 @@
 
 using namespace Ashigaru;
 
-/* CopyTileToResult() places a rendering result from a PBO representing a
-* tile into the full image.
+/* CopyTileToResult() places a rendering result from a tile buffer
+* into the full image.
 * 
 * Arguments:
-* pbo - the Pixel Buffer Object representing the rendered tile. 
-*    It is assumed that all memory transferred have completed,
-*    whatever the user needs to do to ensure this.
+* source - points to contiguous tile memory. Should be of size 
+*   tile_width*tile_height*`elem_size`, as infered from `tile_rect` (below).
 * tile_rect - the top/left/bottom right locations in the global
 *    XY plane, where this tile views.
 * img_buf - data buffer for the image. Assumed to contain enough
 *    space for all tiles, otherwise it will segfault. Checking
 *    the input is the user's responsibility.
 * stride - how many pixels in a row for the full image.
-* elem_size - number of bytes per element in the pbo.
+* elem_size - number of bytes per element in `source`.
 * 
 * Note: obviously, the last two items should be replaces with some 
 *    image class when we get around to it.
@@ -85,7 +84,7 @@ TiledView::TiledView(
 }
 
 // Each tile result generates a Sync and PBO object. These are stored 
-// in a tileJob struct together with the necessary tile/image information
+// in a TileJob struct together with the necessary tile/image information
 // for later processing. Then, tile jobs are async executed whenever their 
 // fence is ready.
 struct TileJob {
