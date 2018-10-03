@@ -8,7 +8,7 @@
 
 #include "opengl_utils.h"
 #include "util.h"
-#include "shader_program.h"
+#include "render_action.h"
 
 namespace Ashigaru {
     template <typename DT>
@@ -22,7 +22,7 @@ namespace Ashigaru {
      * therefore can execute OpenGL calls with impunity.
      */
     class TiledView {
-        ShaderProgram& m_render_action;
+        RenderAction& m_render_action;
         unsigned int m_full_width, m_full_height;
         unsigned int m_tile_width, m_tile_height;
         Model& m_geometry; 
@@ -34,7 +34,7 @@ namespace Ashigaru {
         // For now, assume integer number of tiles in each dimension.
         // The neccessry adjustments to non-integer will wait.
         TiledView(
-            ShaderProgram& render_action,
+            RenderAction& render_action,
             unsigned int full_width, unsigned int full_height, 
             unsigned int tile_width, unsigned int tile_height,
             Model& geometry

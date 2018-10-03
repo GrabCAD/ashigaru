@@ -66,7 +66,7 @@ int main(int argc, char **argv) {
     Ashigaru::RenderServer server(tile_width, tile_height);
     
     // Create the view we want to render:
-    Ashigaru::TestShaderProgram program{tile_width, tile_height};
+    Ashigaru::TestRenderAction program{tile_width, tile_height};
     auto view = server.RegisterView(program, width, height, geometry).get();
     
     // Render slice 0:

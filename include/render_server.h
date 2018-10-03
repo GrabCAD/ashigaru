@@ -30,7 +30,7 @@ namespace Ashigaru
     // Parallel processing machinery:        
     private:
         struct ViewRequest {
-            ShaderProgram& render_action;
+            RenderAction& render_action;
             unsigned int full_width, full_height;
             std::shared_ptr<Model> geometry;
             std::promise<ViewHandle> ready;
@@ -63,7 +63,7 @@ namespace Ashigaru
          * Returns:
          * a future that would give a handle to the new view when it's done.
          */
-        std::future<ViewHandle> RegisterView(ShaderProgram& render_action,
+        std::future<ViewHandle> RegisterView(RenderAction& render_action,
             unsigned int full_width, unsigned int full_height, 
             const Model &geometry);
         

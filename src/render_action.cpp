@@ -4,25 +4,25 @@
  */
 
 #include <glm/gtc/matrix_transform.hpp>
-#include "shader_program.h"
+#include "render_action.h"
 #include "geometry.h"
 
 #include <iostream>
 
 using namespace Ashigaru;
 
-TestShaderProgram::TestShaderProgram(unsigned int width, unsigned int height) 
+TestRenderAction::TestRenderAction(unsigned int width, unsigned int height) 
     : m_width{width}, m_height{height}
 {}
 
-void TestShaderProgram::InitGL()
+void TestRenderAction::InitGL()
 {
     // Create and compile our GLSL program from the shaders
     m_program_ID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
     m_fbo = SetupRenderTarget(m_width, m_height);    
 }
 
-GLuint TestShaderProgram::SetupRenderTarget(unsigned int width, unsigned int height)
+GLuint TestRenderAction::SetupRenderTarget(unsigned int width, unsigned int height)
 {
     GLuint render_buf[2];
     GLuint fbo;
@@ -54,7 +54,7 @@ void print_mat(const glm::mat4& PV)
     std::cout << PV[3][0] << " " << PV[3][1] << " " << PV[3][2] << " " << PV[3][3] << std::endl;    
 }
 
-bool Ashigaru::TestShaderProgram::PrepareTile(Rect<unsigned int> tile_rect) {
+bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     Rect<unsigned int>::Corner tl = tile_rect.getTopLeft();
     Rect<unsigned int>::Corner br = tile_rect.getBottomRight();
     unsigned int tw = tile_rect.Width();
@@ -81,7 +81,7 @@ bool Ashigaru::TestShaderProgram::PrepareTile(Rect<unsigned int> tile_rect) {
     return true;
 }
 
-std::vector<RenderAsyncResult> TestShaderProgram::StartRender(GLuint PosBufferID, size_t num_verts) {
+std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID, size_t num_verts) {
     std::vector<RenderAsyncResult> ret;
     
     // Make positions an attribute of the vertex array used for drawing:

@@ -15,11 +15,11 @@ namespace Ashigaru {
     /* Abstract class. Each child represent all of the shell for running a 
     shader program and waiting for the results, as many of them as there are.
     
-    The model is that the ShaderProgram knows how to run itself, but the user knows 
+    The model is that the RenderAction knows how to run itself, but the user knows 
     the context and circumstances. So, for example, the user is responsible for setting 
     uniforms, separately from the render step itself.
     */
-    class ShaderProgram {
+    class RenderAction {
     public:
         /* No OpenGL actions can happen outside the render thread. This is a problem
         * when we want to do things like construction and whatever in the user thread.
@@ -60,7 +60,7 @@ namespace Ashigaru {
         virtual std::vector<unsigned int> OutputPixelSizes() const = 0;
     };
 
-    class TestShaderProgram : public ShaderProgram {
+    class TestRenderAction : public RenderAction {
         GLuint m_program_ID;
         GLuint m_fbo = 0;
         unsigned int m_width, m_height;
@@ -82,7 +82,7 @@ namespace Ashigaru {
         GLuint SetupRenderTarget(unsigned int width, unsigned int height);
         
     public:
-        TestShaderProgram(unsigned int width, unsigned int height);
+        TestRenderAction(unsigned int width, unsigned int height);
         
         virtual void InitGL() override;
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) override;

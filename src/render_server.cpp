@@ -93,7 +93,7 @@ void RenderServer::RenderThreadFunction() {
     } // requests loop.
 }
 
-std::future<RenderServer::ViewHandle> RenderServer::RegisterView(ShaderProgram& render_action,
+std::future<RenderServer::ViewHandle> RenderServer::RegisterView(RenderAction& render_action,
     unsigned int full_width, unsigned int full_height, 
     const Model &geometry)
 {

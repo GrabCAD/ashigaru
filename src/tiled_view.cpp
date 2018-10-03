@@ -61,7 +61,7 @@ static void SetPromisesWhenDone(
 }
 
 TiledView::TiledView(
-    ShaderProgram& render_action,
+    RenderAction& render_action,
     unsigned int full_width, unsigned int full_height, unsigned int tile_width, unsigned int tile_height, 
     Model &geometry
 )
