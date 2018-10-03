@@ -113,6 +113,7 @@ void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_pt
     glBindVertexArray(m_varray);
     
     // Give the GPU its day's orders:
+    m_render_action.PrepareSlice(slice_num);
     for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
         for (unsigned int htile = 0; htile < num_height_tiles; ++htile) 
         {

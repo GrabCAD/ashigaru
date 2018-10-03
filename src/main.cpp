@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
     desc.add_options()
             ("img-size", po::value<unsigned int>()->default_value(2048u), "Side of square image generated.")
             ("tile-size", po::value<unsigned int>()->default_value(1024u), "Side of square tile for rendering.")
+            ("slice", po::value<size_t>()->default_value(0u))
     ;
 
     po::variables_map vm;
@@ -69,8 +70,8 @@ int main(int argc, char **argv) {
     Ashigaru::TestRenderAction program{tile_width, tile_height};
     auto view = server.RegisterView(program, width, height, geometry).get();
     
-    // Render slice 0:
-    std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, 0);
+    // Render slice:
+    std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());
     
     // wait for results and save them:
     std::unique_ptr<char> data = std::move(res[0].get());

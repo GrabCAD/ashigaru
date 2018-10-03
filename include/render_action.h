@@ -53,6 +53,8 @@ namespace Ashigaru {
         */
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) = 0;
         
+        virtual bool PrepareSlice(size_t slice_num) = 0;
+        
         // Well, the description of triangles given to StartRender will evolve yet.
         virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) = 0;
         
@@ -68,6 +70,7 @@ namespace Ashigaru {
         static const GLuint pos_attribute = 0;
         
         glm::mat4 m_tile_projection;
+        size_t m_slice;
         
         /* SetupRenderTarget() creates a Frame Buffer Object with one
         * RenderBuffer, sized to the given image dimensions. The internal
@@ -86,6 +89,7 @@ namespace Ashigaru {
         
         virtual void InitGL() override;
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) override;
+        virtual bool PrepareSlice(size_t slice_num) { m_slice = slice_num; return true; }
         virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) override;
         
         // first return is RGBA color, 1 byte per channel. Second is ushort.

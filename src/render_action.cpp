@@ -62,8 +62,8 @@ bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     m_tile_projection = glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f);
     
     glm::mat4 view = glm::lookAt(
-        glm::vec3{br[1] + tw/2, br[0] + th/2, 0},
-        glm::vec3{br[1] + tw/2, br[0] + th/2, 10000},
+        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice},
+        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice*2},
         glm::vec3{0, 1, 0}
     );
     
