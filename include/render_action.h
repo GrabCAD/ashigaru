@@ -69,7 +69,6 @@ namespace Ashigaru {
         
         static const GLuint pos_attribute = 0;
         
-        glm::mat4 m_tile_projection;
         size_t m_slice;
         
         /* SetupRenderTarget() creates a Frame Buffer Object with one
@@ -94,5 +93,11 @@ namespace Ashigaru {
         
         // first return is RGBA color, 1 byte per channel. Second is ushort.
         virtual std::vector<unsigned int> OutputPixelSizes() const { return std::vector<unsigned int>{4, 2}; }
+        
+    // Scratch data for rendering. Generated in preparation of slice or tile,
+    // and used in the actual rendering.
+    private:
+        glm::mat4 m_look_up, m_look_down;
+        GLuint m_depth_tex[2]; // first looking up, then looking down.
     };
 }
