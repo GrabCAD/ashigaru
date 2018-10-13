@@ -103,5 +103,19 @@ namespace Ashigaru {
         
         static const float quad_vertices[][3];
         static const float quad_UV[][2];
+    
+    // Internal operations.
+    private:
+        /* CommitBufferAsync() starts a read from GL to memory of one of the buffers in the frame buffer.
+        * It generates the pair of fence/PBO required by external code to track completion and act of 
+        * the copied buffer.
+        * Assumes that a proper FBO is bound.
+        * 
+        * Arguments:
+        * which - designation of the read buffer as would be given to glReadBuffer (e.g. GL_COLOR_ATTACHMENT0)
+        * elem_size - bytes per pixel in the read buffer.
+        * format, type - passed along to glReadPixels(), so see that.
+        */
+        RenderAsyncResult CommitBufferAsync(GLenum which, unsigned short elem_size, GLenum format,  GLenum type);
     };
 }

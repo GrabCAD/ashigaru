@@ -144,17 +144,7 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID,
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
-    // Target for reading pixels:
-    GLuint pbo;
-    glGenBuffers(1,&pbo);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
-    glBufferData(GL_PIXEL_PACK_BUFFER, m_width*m_height*4, NULL, GL_STREAM_READ);
-    
-    // Get the result, async.
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glReadPixels(0, 0, m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, 0);
-    GLsync read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    ret.push_back(std::make_pair(read_fence, pbo));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 4, GL_RGBA, GL_UNSIGNED_BYTE));
     
     // Second render: looking down. Only depth is needed. However, if we set draw 
     // buffer to GL_NONE, color is trampled and nobody cares that it's been a subject 
@@ -195,17 +185,23 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID,
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
     
-    // Target for reading depth buffer:
-    glGenBuffers(1,&pbo);
-    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
-    glBufferData(GL_PIXEL_PACK_BUFFER, m_width*m_height*2, NULL, GL_STREAM_READ);
-    
-    // Get the depth, async.
-    glReadBuffer(GL_COLOR_ATTACHMENT0);
-    glReadPixels(0, 0, m_width, m_height, GL_RED, GL_UNSIGNED_SHORT, 0);
-    read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    ret.push_back(std::make_pair(read_fence, pbo));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     // Return sync objects:
     return ret;
+}
+
+RenderAsyncResult TestRenderAction::CommitBufferAsync(GLenum which, unsigned short elem_size, GLenum format,  GLenum type)
+{
+    GLuint pbo;
+    glGenBuffers(1,&pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, m_width*m_height*elem_size, NULL, GL_STREAM_READ);
+    
+    // Get the depth, async.
+    glReadBuffer(which);
+    glReadPixels(0, 0, m_width, m_height, format, type, 0);
+    
+    GLsync read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    return std::make_pair(read_fence, pbo);
 }
