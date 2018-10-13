@@ -63,7 +63,7 @@ namespace Ashigaru {
     };
 
     class TestRenderAction : public RenderAction {
-        GLuint m_program_ID;
+        GLuint m_full_program, m_height_program;
         GLuint m_fbo = 0;
         unsigned int m_width, m_height;
         
@@ -88,16 +88,20 @@ namespace Ashigaru {
         
         virtual void InitGL() override;
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) override;
-        virtual bool PrepareSlice(size_t slice_num) { m_slice = slice_num; return true; }
+        virtual bool PrepareSlice(size_t slice_num) override { m_slice = slice_num; return true; }
         virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) override;
         
         // first return is RGBA color, 1 byte per channel. Second is ushort.
-        virtual std::vector<unsigned int> OutputPixelSizes() const { return std::vector<unsigned int>{4, 2}; }
+        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{4, 2}; }
         
     // Scratch data for rendering. Generated in preparation of slice or tile,
     // and used in the actual rendering.
     private:
         glm::mat4 m_look_up, m_look_down;
         GLuint m_depth_tex[2]; // first looking up, then looking down.
+        GLuint m_quad_buffer, m_quad_uv_buffer;
+        
+        static const float quad_vertices[][3];
+        static const float quad_UV[][2];
     };
 }

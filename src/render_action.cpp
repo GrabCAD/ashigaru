@@ -11,6 +11,20 @@
 
 using namespace Ashigaru;
 
+const float TestRenderAction::quad_vertices[][3] = {
+    {-1., -1., 0.},
+    {+1., -1., 0.},
+    {+1., +1., 0.},
+    {-1., +1., 0.}
+};
+
+const float TestRenderAction::quad_UV[][2] = {
+    {0., 0.},
+    {1., 0.},
+    {1., 1.},
+    {0., 1.}
+};
+
 TestRenderAction::TestRenderAction(unsigned int width, unsigned int height) 
     : m_width{width}, m_height{height}
 {}
@@ -18,8 +32,20 @@ TestRenderAction::TestRenderAction(unsigned int width, unsigned int height)
 void TestRenderAction::InitGL()
 {
     // Create and compile our GLSL program from the shaders
-    m_program_ID = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
-    m_fbo = SetupRenderTarget(m_width, m_height);    
+    m_full_program = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl");
+    m_height_program = LoadShaders("shaders/passthrough.vertex.glsl", "shaders/take_min.glsl");
+    m_fbo = SetupRenderTarget(m_width, m_height);
+    
+    // Prepare a quad for deferred-shading methods.
+    glGenBuffers(1, &m_quad_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m_quad_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+    
+    glGenBuffers(1, &m_quad_uv_buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, m_quad_uv_buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad_UV), quad_UV, GL_STATIC_DRAW);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 GLuint TestRenderAction::SetupRenderTarget(unsigned int width, unsigned int height)
@@ -102,9 +128,9 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID,
     glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
-    glUseProgram(m_program_ID);
+    glUseProgram(m_full_program);
     
-    GLuint MatrixID = glGetUniformLocation(m_program_ID, "projection");
+    GLuint MatrixID = glGetUniformLocation(m_full_program, "projection");
     
     // First render: look up.
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, m_depth_tex[0], 0);
@@ -142,14 +168,41 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID,
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     glDisableVertexAttribArray(0);
     
+    
+    // Combine depth buffers:
+    glUseProgram(m_height_program);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_depth_tex[0]);
+    glUniform1i(glGetUniformLocation(m_height_program, "tex1"), 0);
+    
+    glActiveTexture(GL_TEXTURE0 + 1);
+    glBindTexture(GL_TEXTURE_2D, m_depth_tex[1]);
+    glUniform1i(glGetUniformLocation(m_height_program, "tex2"), 1);
+    
+    glEnableVertexAttribArray(pos_attribute);
+    glBindBuffer(GL_ARRAY_BUFFER, m_quad_buffer);
+    glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ARRAY_BUFFER, m_quad_uv_buffer);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+    glDisable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    
+    glDisableVertexAttribArray(1);
+    glDisableVertexAttribArray(0);
+    
     // Target for reading depth buffer:
     glGenBuffers(1,&pbo);
     glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
     glBufferData(GL_PIXEL_PACK_BUFFER, m_width*m_height*2, NULL, GL_STREAM_READ);
     
     // Get the depth, async.
-    glReadBuffer(GL_DEPTH_ATTACHMENT);
-    glReadPixels(0, 0, m_width, m_height, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, 0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    glReadPixels(0, 0, m_width, m_height, GL_RED, GL_UNSIGNED_SHORT, 0);
     read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     ret.push_back(std::make_pair(read_fence, pbo));
     
