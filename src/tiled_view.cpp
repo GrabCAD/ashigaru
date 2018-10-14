@@ -3,7 +3,6 @@
 #include <iostream>
 
 #include "tiled_view.h"
-#include "geometry.h"
 
 using namespace Ashigaru;
 
@@ -78,9 +77,29 @@ TiledView::TiledView(
     
     // Future: per-tile structures. But for now, all tiles share the same VBO.
     GLfloat* positions = (float *)m_geometry.first.data();
-    glGenBuffers(1, &m_posbuff);
-    glBindBuffer(GL_ARRAY_BUFFER, m_posbuff);
-    glBufferData(GL_ARRAY_BUFFER, m_geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+    
+    unsigned int num_width_tiles = m_full_width / m_tile_width;
+    unsigned int num_height_tiles = m_full_height / m_tile_height;
+    
+    for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
+        for (unsigned int htile = 0; htile < num_height_tiles; ++htile) 
+        {
+            Tile tile;
+            tile.region = {
+                (htile + 1)*m_tile_height, 
+                (wtile + 1)*m_tile_width, 
+                (htile)*m_tile_height, 
+                (wtile)*m_tile_width,
+            };
+            
+            glGenBuffers(1, &tile.vertices);
+            glBindBuffer(GL_ARRAY_BUFFER, tile.vertices);
+            glBufferData(GL_ARRAY_BUFFER, m_geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+            
+            tile.num_verts = m_geometry.first.size();
+            m_tiles.push_back(tile);
+        }
+    }
 }
 
 // Each tile result generates a Sync and PBO object. These are stored 
@@ -114,27 +133,16 @@ void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_pt
     
     // Give the GPU its day's orders:
     m_render_action.PrepareSlice(slice_num);
-    for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
-        for (unsigned int htile = 0; htile < num_height_tiles; ++htile) 
-        {
-            Rect<unsigned int> tile_rect {
-                (htile + 1)*m_tile_height, 
-                (wtile + 1)*m_tile_width, 
-                (htile)*m_tile_height, 
-                (wtile)*m_tile_width,
-            };
-            
-            m_render_action.PrepareTile(tile_rect);
-            auto tile_res = m_render_action.StartRender(m_posbuff, m_geometry.first.size());
-            
-            for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
-                tile_jobs.push_back(TileJob{
-                    tile_res[image].first, tile_res[image].second, tile_rect, image_bufs[image], m_full_width, output_sizes[image]
-                });
-            }
-        } // end tile.
+    for (auto& tile : m_tiles) {
+        m_render_action.PrepareTile(tile.region);
+        auto tile_res = m_render_action.StartRender(tile.vertices, tile.num_verts);
+        
+        for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
+            tile_jobs.push_back(TileJob{
+                tile_res[image].first, tile_res[image].second, tile.region, image_bufs[image], m_full_width, output_sizes[image]
+            });
+        }
     }
-    
     
     // Wait for GPU to finish tiles, and send finished tiles to placement.
     using WaitingVec = std::vector<std::future<bool>>;

@@ -6,14 +6,12 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include "geometry.h"
 #include "opengl_utils.h"
 #include "util.h"
 #include "render_action.h"
 
 namespace Ashigaru {
-    template <typename DT>
-    class Rect; // Will come from geometry.h when it comes.
-    
     /* This class should hold all persistent tile data. For example, the
      * per-tile VBOs and per-tile model lookup database that allows only
      * parts of a VBO to be used.
@@ -27,8 +25,15 @@ namespace Ashigaru {
         unsigned int m_tile_width, m_tile_height;
         Model& m_geometry; 
         
+        // OpenGL resources:
         GLuint m_varray;
-        GLuint m_posbuff;
+        
+        struct Tile {
+            Rect<unsigned int> region;
+            GLuint vertices; // A VBO handle.
+            size_t num_verts;
+        };
+        std::vector<Tile> m_tiles;
         
     public:
         // For now, assume integer number of tiles in each dimension.
