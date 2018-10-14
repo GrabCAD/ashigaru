@@ -97,8 +97,8 @@ bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     glm::mat4 projection { glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f) };
     
     glm::mat4 view = glm::lookAt(
-        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice},
-        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice + 1},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice + 1},
         glm::vec3{0, 1, 0}
     );
     
@@ -108,10 +108,10 @@ bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     glm::mat4 mirror_image = glm::scale(glm::mat4(1.0f), glm::vec3{-1, 1, 1});
     m_look_up = mirror_image*projection*view;
     
-    // Now look down from the same place:
+    // Now look down from the same place:   
     view = glm::lookAt(
-        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice},
-        glm::vec3{br[1] + tw/2, br[0] + th/2, m_slice - 1},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice - 1},
         glm::vec3{0, 1, 0}
     );
     m_look_down = projection*view;

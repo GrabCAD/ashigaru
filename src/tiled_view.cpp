@@ -31,7 +31,7 @@ static bool CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, c
     unsigned int tw = tile_rect.Width()*elem_size;
     for (unsigned int row = 0; row < tile_rect.Height(); ++row) {
         unsigned int image_row = row + tile_rect.bottom();
-        std::copy(source + row*tw, source + (row + 1)*tw, img_buf + (image_row*stride + tile_rect.right())*elem_size);
+        std::copy(source + row*tw, source + (row + 1)*tw, img_buf + (image_row*stride + tile_rect.left())*elem_size);
     }
     
     return true;
@@ -87,9 +87,9 @@ TiledView::TiledView(
             Tile tile;
             tile.region = {
                 (htile + 1)*m_tile_height, 
-                (wtile + 1)*m_tile_width, 
+                (wtile)*m_tile_width, 
                 (htile)*m_tile_height, 
-                (wtile)*m_tile_width,
+                (wtile + 1)*m_tile_width,
             };
             
             glGenBuffers(1, &tile.vertices);

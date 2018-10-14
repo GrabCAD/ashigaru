@@ -32,7 +32,7 @@ namespace Ashigaru
         DT bottom() const { return m_bottomright[0]; }
         DT right() const { return m_bottomright[1]; }
         
-        DT Width() const { return m_topleft[1] - m_bottomright[1]; }
+        DT Width() const { return m_bottomright[1] - m_topleft[1]; }
         DT Height() const { return m_topleft[0] - m_bottomright[0]; }
     };
 }
