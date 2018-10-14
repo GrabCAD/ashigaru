@@ -1,4 +1,5 @@
 #include <list>
+#include <set>
 #include <algorithm>
 #include <iostream>
 
@@ -92,9 +93,35 @@ TiledView::TiledView(
                 (wtile + 1)*m_tile_width,
             };
             
+            // if a face touches the tile, take all its vertices to this tile's list.
+            // Future: maybe just work with faces and glDrawElements()?
+            std::set<size_t> vertex_inds;
+            for (Triangle& face : m_geometry.second) {
+                // Two passes on each face: (a) check if touches tile, 
+                // (b) if so, record all vertices in face.
+                bool touch = std::any_of(
+                    face.begin(), face.end(), 
+                    [&vertex_inds, &tile, this](Triangle::value_type ind) {
+                        if (vertex_inds.count(ind) == 1) return true;
+                        Vertex& vert = m_geometry.first[ind];
+                        return (vert.x >= tile.region.left() && vert.x <= tile.region.right() &&
+                            vert.y >= tile.region.bottom() && vert.y <= tile.region.top());
+                    }
+                );
+                if (!touch) continue;
+                
+                vertex_inds.insert(face.begin(), face.end());
+            }
+            // Another future improvement: hold the vertices in a way more conducive to 
+            // tile division. Anyway, this very suboptimal version will do for now.
+            
+            std::vector<Vertex> tile_verts;
+            for (auto vert_ind : vertex_inds)
+                tile_verts.push_back(m_geometry.first[vert_ind]);
+            
             glGenBuffers(1, &tile.vertices);
             glBindBuffer(GL_ARRAY_BUFFER, tile.vertices);
-            glBufferData(GL_ARRAY_BUFFER, m_geometry.first.size()*3*sizeof(float), positions, GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
             
             tile.num_verts = m_geometry.first.size();
             m_tiles.push_back(tile);
