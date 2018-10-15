@@ -4,6 +4,7 @@
 
 #include <vector>
 #include <array>
+#include <utility>
 #include <glm/glm.hpp>
 
 enum class ImageType {Color, Gray};

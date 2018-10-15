@@ -63,11 +63,11 @@ static void SetPromisesWhenDone(
 TiledView::TiledView(
     RenderAction& render_action,
     unsigned int full_width, unsigned int full_height, unsigned int tile_width, unsigned int tile_height, 
-    Model &geometry
+    std::vector<std::shared_ptr<const Model>>& geometry
 )
     : m_render_action{render_action},
       m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}, 
-      m_geometry{geometry} 
+      m_models{geometry} 
 {
     m_render_action.InitGL();
     
@@ -77,7 +77,7 @@ TiledView::TiledView(
     glBindVertexArray(m_varray);
     
     // Future: per-tile structures. But for now, all tiles share the same VBO.
-    GLfloat* positions = (float *)m_geometry.first.data();
+    GLfloat* positions = (float *)m_models[0]->first.data();
     
     unsigned int num_width_tiles = m_full_width / m_tile_width;
     unsigned int num_height_tiles = m_full_height / m_tile_height;
@@ -96,14 +96,14 @@ TiledView::TiledView(
             // if a face touches the tile, take all its vertices to this tile's list.
             // Future: maybe just work with faces and glDrawElements()?
             std::set<size_t> vertex_inds;
-            for (Triangle& face : m_geometry.second) {
+            for (const Triangle& face : m_models[0]->second) {
                 // Two passes on each face: (a) check if touches tile, 
                 // (b) if so, record all vertices in face.
                 bool touch = std::any_of(
                     face.begin(), face.end(), 
                     [&vertex_inds, &tile, this](Triangle::value_type ind) {
                         if (vertex_inds.count(ind) == 1) return true;
-                        Vertex& vert = m_geometry.first[ind];
+                        const Vertex& vert = m_models[0]->first[ind];
                         return (vert.x >= tile.region.left() && vert.x <= tile.region.right() &&
                             vert.y >= tile.region.bottom() && vert.y <= tile.region.top());
                     }
@@ -117,13 +117,13 @@ TiledView::TiledView(
             
             std::vector<Vertex> tile_verts;
             for (auto vert_ind : vertex_inds)
-                tile_verts.push_back(m_geometry.first[vert_ind]);
+                tile_verts.push_back(m_models[0]->first[vert_ind]);
             
             glGenBuffers(1, &tile.vertices);
             glBindBuffer(GL_ARRAY_BUFFER, tile.vertices);
             glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
             
-            tile.num_verts = m_geometry.first.size();
+            tile.num_verts = m_models[0]->first.size();
             m_tiles.push_back(tile);
         }
     }

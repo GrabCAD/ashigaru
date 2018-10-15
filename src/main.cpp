@@ -68,7 +68,8 @@ int main(int argc, char **argv) {
     
     // Create the view we want to render:
     Ashigaru::TestRenderAction program{tile_width, tile_height};
-    auto view = server.RegisterView(program, width, height, geometry).get();
+    auto models = server.RegisterModels(std::vector<std::shared_ptr<Model>>{std::shared_ptr<Model>{&geometry, [](Model*) {}}});
+    auto view = server.RegisterView(program, width, height, models).get();
     
     // Render slice:
     std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <vector>
 #include <queue>
 #include <mutex>
 #include <future>
@@ -17,6 +18,7 @@ namespace Ashigaru
     class RenderServer {
     public:
         using ViewHandle = unsigned int;
+        using ModelHandle = size_t;
     
     // Core properties:
     private:
@@ -24,22 +26,22 @@ namespace Ashigaru
         bool m_keep_running;
         
         unsigned int m_tile_width, m_tile_height;
-        std::shared_ptr<Model> m_geometry; 
-        // future: several scenes with a handle, and RegisterView gets a scene handle instead of the models.
 
     // Parallel processing machinery:        
     private:
+        std::vector<std::shared_ptr<Model>> m_models; 
+        
         struct ViewRequest {
             RenderAction& render_action;
             unsigned int full_width, full_height;
-            std::shared_ptr<Model> geometry;
+            std::vector<std::shared_ptr<const Model>> geometry;
             std::promise<ViewHandle> ready;
         };
         std::queue<ViewRequest> m_view_requests;
         std::mutex m_view_reqs_lock;
         std::unordered_map<ViewHandle, TiledView> m_views;
         
-        struct SliceRequest { // could be done with a pair<> but this way is more future-proof.
+        struct SliceRequest {
             ViewHandle view;
             size_t slice_num;
             std::vector<std::promise<std::unique_ptr<char>>> promises; // Where to put the result.
@@ -54,6 +56,17 @@ namespace Ashigaru
         RenderServer(unsigned int tile_width, unsigned int tile_height);
         ~RenderServer();
         
+        /* Copy models into the server and get handles for refering to them later. 
+         * Why copy? beause then we are free to transform the objects into the 
+         * tray just once, without altering the user's copy. That transform is
+         * necessary to do in advance so that the tiling procedure can check which
+         * vertices apply to which tile.
+         * 
+         * In this demo models have no transform so it's not done, but the 
+         * architecture is valid in the more general case.
+         */
+        std::vector<ModelHandle> RegisterModels(const std::vector<std::shared_ptr<Model>> models);
+        
         /* Instruct the render thread to cunstruct a new view and ready it for 
          * rendering - tiled or otherwise. 
          * 
@@ -65,7 +78,7 @@ namespace Ashigaru
          */
         std::future<ViewHandle> RegisterView(RenderAction& render_action,
             unsigned int full_width, unsigned int full_height, 
-            const Model &geometry);
+            const std::vector<ModelHandle>& models);
         
         /* ViewSlice() instructs the render thread to render a slice.
          * 

@@ -70,7 +70,7 @@ void RenderServer::RenderThreadFunction() {
                 ViewHandle handle = static_cast<ViewHandle>(m_views.size());
 
                 m_views.emplace(handle, 
-                    TiledView(req.render_action, req.full_width, req.full_height, m_tile_width, m_tile_height, *req.geometry)
+                    TiledView(req.render_action, req.full_width, req.full_height, m_tile_width, m_tile_height, req.geometry)
                 );
                 
                 req.ready.set_value(handle);
@@ -93,16 +93,33 @@ void RenderServer::RenderThreadFunction() {
     } // requests loop.
 }
 
+std::vector<RenderServer::ModelHandle> RenderServer::RegisterModels(const std::vector<std::shared_ptr<Model>> models)
+{
+    std::vector<ModelHandle> ret;
+    for (auto model : models) {
+        ret.push_back(m_models.size());
+        m_models.push_back(std::make_shared<Model>(Model{*model})); // pointer to copy.
+    }
+    
+    return ret;
+}
+
 std::future<RenderServer::ViewHandle> RenderServer::RegisterView(RenderAction& render_action,
     unsigned int full_width, unsigned int full_height, 
-    const Model &geometry)
+    const std::vector<ModelHandle>& models)
 {
-    // This one is just a stand-in for the multi-scene future:
-    m_geometry = std::make_shared<Model>(Model{geometry});
+    std::vector<std::shared_ptr<const Model>> view_models;
+    
+    for (auto modelH : models) {
+        if (modelH >= m_models.size())
+            throw std::runtime_error("Bad model handle requested for view.");
         
+        view_models.push_back(m_models[modelH]);
+    }
+    
     std::lock_guard<std::mutex> lck{m_view_reqs_lock};
     m_view_requests.push(ViewRequest{
-        render_action, full_width, full_height, m_geometry, std::promise<ViewHandle>(),
+        render_action, full_width, full_height, std::move(view_models), std::promise<ViewHandle>(),
     });
     
     return m_view_requests.back().ready.get_future();

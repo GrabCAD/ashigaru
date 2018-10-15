@@ -23,7 +23,7 @@ namespace Ashigaru {
         RenderAction& m_render_action;
         unsigned int m_full_width, m_full_height;
         unsigned int m_tile_width, m_tile_height;
-        Model& m_geometry; 
+        std::vector<std::shared_ptr<const Model>> m_models; 
         
         // OpenGL resources:
         GLuint m_varray;
@@ -42,7 +42,7 @@ namespace Ashigaru {
             RenderAction& render_action,
             unsigned int full_width, unsigned int full_height, 
             unsigned int tile_width, unsigned int tile_height,
-            Model& geometry
+            std::vector<std::shared_ptr<const Model>>& geometry
         );
         
         size_t NumOutputs() { return m_render_action.OutputPixelSizes().size(); }
