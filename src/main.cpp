@@ -39,11 +39,11 @@ int main(int argc, char **argv) {
     unsigned int tile_width = vm["tile-size"].as <unsigned int>();
     unsigned int tile_height = tile_width;
     
-    // Positions of the vertices:
-    // Do Q&D size-to-fit just so I can get a fast answer.
-    auto geometry = readBinarySTL("models/crystal.stl");
+    // Load a model, do Q&D size-to-fit and then duplicate it.
+    // the two models are the (possibly) rendered scene.
+    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/crystal.stl"));
     Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
-    for (auto& vertex : geometry.first) // find bounding box
+    for (auto& vertex : geometry->first) // find bounding box
     {
         maxV = {
             std::max(vertex[0], maxV[0]),
@@ -58,9 +58,14 @@ int main(int argc, char **argv) {
     }
     glm::vec3 dims = maxV - minV;
     glm::vec3 scale_factor = {width, width, width};
-    for (auto& vertex : geometry.first) {
+    for (auto& vertex : geometry->first) {
         vertex = (vertex - minV) / dims * scale_factor;
         std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
+    }
+    
+    std::shared_ptr<Model> partner_geom {new Model{*geometry}};
+    for (auto& vertex : partner_geom->first) {
+        vertex.x += width;
     }
     
     // Start the render server:
@@ -68,18 +73,18 @@ int main(int argc, char **argv) {
     
     // Create the view we want to render:
     Ashigaru::TestRenderAction program{tile_width, tile_height};
-    auto models = server.RegisterModels(std::vector<std::shared_ptr<Model>>{std::shared_ptr<Model>{&geometry, [](Model*) {}}});
-    auto view = server.RegisterView(program, width, height, models).get();
+    auto models = server.RegisterModels(std::vector<std::shared_ptr<Model>>{geometry, partner_geom});
+    auto view = server.RegisterView(program, 2*width, height, models).get();
     
     // Render slice:
     std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());
     
     // wait for results and save them:
     std::unique_ptr<char> data = std::move(res[0].get());
-    writeImage("dump.png", width, height, ImageType::Color, data.get(), "Ashigaru slice");
+    writeImage("dump.png", 2*width, height, ImageType::Color, data.get(), "Ashigaru slice");
     
     data = res[1].get();
-    writeImage("depth.png", width, height, ImageType::Gray, data.get(), "Ashigaru depth");
+    writeImage("depth.png", 2*width, height, ImageType::Gray, data.get(), "Ashigaru depth");
     
     std::cout << "Healthy finish!" << std::endl;
     return 0;
