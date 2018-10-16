@@ -142,17 +142,19 @@ TiledView::TiledView(
                 auto num_taken = TakeTouchingFaces(*model, tile.region, tile_verts);
                 shell_IDs.insert(shell_IDs.end(), num_taken, shell_ID++ );
             }
+            tile.vertices.SetNumVerts(tile_verts.size());
             
-            glGenBuffers(1, &tile.vertices);
-            glBindBuffer(GL_ARRAY_BUFFER, tile.vertices);
+            GLuint vert_buf, shellIds_buf;
+            glGenBuffers(1, &vert_buf);
+            glBindBuffer(GL_ARRAY_BUFFER, vert_buf);
             glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
+            tile.vertices.AddBuffer("positions", vert_buf);
             
-            glGenBuffers(1, &tile.shell_IDs);
-            glBindBuffer(GL_ARRAY_BUFFER, tile.shell_IDs);
+            glGenBuffers(1, &shellIds_buf);
+            glBindBuffer(GL_ARRAY_BUFFER, shellIds_buf);
             glBufferData(GL_ARRAY_BUFFER, shell_IDs.size()*sizeof(unsigned short), shell_IDs.data(), GL_STATIC_DRAW);
+            tile.vertices.AddBuffer("shellIDs", shellIds_buf);
             
-            // finalize
-            tile.num_verts = tile_verts.size();
             m_tiles.push_back(tile);
         }
     }
@@ -191,7 +193,7 @@ void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_pt
     m_render_action.PrepareSlice(slice_num);
     for (auto& tile : m_tiles) {
         m_render_action.PrepareTile(tile.region);
-        auto tile_res = m_render_action.StartRender(tile.vertices, tile.shell_IDs, tile.num_verts);
+        auto tile_res = m_render_action.StartRender(tile.vertices);
         
         for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
             tile_jobs.push_back(TileJob{

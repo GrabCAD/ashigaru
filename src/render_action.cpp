@@ -119,8 +119,12 @@ bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     return true;
 }
 
-std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID, GLuint IDBufferID, size_t num_verts) {
+std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) {
     std::vector<RenderAsyncResult> ret;
+    
+    GLuint PosBufferID = vertices.GetBuffer("positions");
+    GLuint IDBufferID = vertices.GetBuffer("shellIDs");
+    unsigned int num_verts = vertices.VertexCount();
     
     // Make positions an attribute of the vertex array used for drawing:
     glEnableVertexAttribArray(pos_attribute);

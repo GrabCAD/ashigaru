@@ -30,8 +30,7 @@ namespace Ashigaru {
         
         struct Tile {
             Rect<unsigned int> region;
-            GLuint vertices, shell_IDs; // A VBO handle.
-            size_t num_verts;
+            VertexDB vertices;
         };
         std::vector<Tile> m_tiles;
         
