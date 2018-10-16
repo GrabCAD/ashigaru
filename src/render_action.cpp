@@ -119,13 +119,17 @@ bool TestRenderAction::PrepareTile(Rect<unsigned int> tile_rect) {
     return true;
 }
 
-std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID, size_t num_verts) {
+std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID, GLuint IDBufferID, size_t num_verts) {
     std::vector<RenderAsyncResult> ret;
     
     // Make positions an attribute of the vertex array used for drawing:
     glEnableVertexAttribArray(pos_attribute);
     glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
     glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    
+    glEnableVertexAttribArray(pos_attribute + 1);
+    glBindBuffer(GL_ARRAY_BUFFER, IDBufferID);
+    glVertexAttribPointer(pos_attribute + 1, 1, GL_UNSIGNED_SHORT, GL_FALSE, 0, (void*)0);
     
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     glUseProgram(m_full_program);
@@ -156,6 +160,7 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(GLuint PosBufferID,
     
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
+    glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
     
     

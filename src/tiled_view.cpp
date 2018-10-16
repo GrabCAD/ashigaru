@@ -60,15 +60,18 @@ static void SetPromisesWhenDone(
         promises[image].set_value(std::unique_ptr<char>(image_bufs[image]));
 }
 
-/* TaketouchingFaces() records all vertices of a model that belong to a face 
+/* TakeTouchingFaces() records all vertices of a model that belong to a face 
  * incident on a given tile.
  * 
  * Arguments:
  * model - containing the vertex and face info.
  * region - the tile corners.
  * taken_verts - output. Vertices are appended to the back.
+ * 
+ * Returns:
+ * number of vertices taken.
  */
-static void TakeTouchingFaces(
+static unsigned int TakeTouchingFaces(
     const Model& model, const Rect<unsigned int> region, std::vector<Vertex>& taken_verts)
 {
     std::set<size_t> vertex_inds;
@@ -93,6 +96,8 @@ static void TakeTouchingFaces(
     
     for (auto vert_ind : vertex_inds)
         taken_verts.push_back(model.first[vert_ind]);
+    
+    return static_cast<unsigned int>(vertex_inds.size());
 }
 
 TiledView::TiledView(
@@ -131,15 +136,23 @@ TiledView::TiledView(
             // if a face touches the tile, take all its vertices to this tile's list.
             // Future: maybe just work with faces and glDrawElements()?
             std::vector<Vertex> tile_verts;
+            std::vector<unsigned short> shell_IDs;
+            unsigned short shell_ID = 0;
             for (auto model : m_models) {
-                TakeTouchingFaces(*model, tile.region, tile_verts);
+                auto num_taken = TakeTouchingFaces(*model, tile.region, tile_verts);
+                shell_IDs.insert(shell_IDs.end(), num_taken, shell_ID++ );
             }
             
             glGenBuffers(1, &tile.vertices);
             glBindBuffer(GL_ARRAY_BUFFER, tile.vertices);
             glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
             
-            tile.num_verts = m_models[0]->first.size();
+            glGenBuffers(1, &tile.shell_IDs);
+            glBindBuffer(GL_ARRAY_BUFFER, tile.shell_IDs);
+            glBufferData(GL_ARRAY_BUFFER, shell_IDs.size()*sizeof(unsigned short), shell_IDs.data(), GL_STATIC_DRAW);
+            
+            // finalize
+            tile.num_verts = tile_verts.size();
             m_tiles.push_back(tile);
         }
     }
@@ -178,7 +191,7 @@ void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_pt
     m_render_action.PrepareSlice(slice_num);
     for (auto& tile : m_tiles) {
         m_render_action.PrepareTile(tile.region);
-        auto tile_res = m_render_action.StartRender(tile.vertices, tile.num_verts);
+        auto tile_res = m_render_action.StartRender(tile.vertices, tile.shell_IDs, tile.num_verts);
         
         for (unsigned int image = 0; image < (unsigned int)output_sizes.size(); ++image) {
             tile_jobs.push_back(TileJob{

@@ -56,7 +56,7 @@ namespace Ashigaru {
         virtual bool PrepareSlice(size_t slice_num) = 0;
         
         // Well, the description of triangles given to StartRender will evolve yet.
-        virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) = 0;
+        virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, GLuint IDBufferID, size_t num_verts) = 0;
         
         // How many elements per tile result? That is, what is sizeof(pixel) per result?
         virtual std::vector<unsigned int> OutputPixelSizes() const = 0;
@@ -89,7 +89,7 @@ namespace Ashigaru {
         virtual void InitGL() override;
         virtual bool PrepareTile(Rect<unsigned int> tile_rect) override;
         virtual bool PrepareSlice(size_t slice_num) override { m_slice = slice_num; return true; }
-        virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, size_t num_verts) override;
+        virtual std::vector<RenderAsyncResult> StartRender(GLuint PosBufferID, GLuint IDBufferID, size_t num_verts) override;
         
         // first return is RGBA color, 1 byte per channel. Second is ushort.
         virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{4, 2}; }
