@@ -1,0 +1,54 @@
+
+=========================================
+    Ashigaru - a demo GPU tiled slicer 
+=========================================
+
+What is Ashigaru? first, says Wikipedia: 
+
+  Ashigaru (足軽 "light [of] foot") were foot-soldiers employed by the samurai class of feudal Japan. 
+
+In other words, cannon-fodder, or rather Katana-fodder.
+
+What is Ashigaru? It's cannon-fodder. It's a test of a new architecture for a component of Katana,
+and a sandbox on which to try new things. 
+
+Ashigaru contains the following:
+
+* RenderServer, a class to manage a thread that does OpenGL rendering.
+* TiledView - a class that helps the server do the rendering in tiles.
+* RenderAction (and child) - example of how to do async rendering with multiple outputs.
+
+The test program is in main.cpp, it just runs a render on one model (crystal.stl), 
+duplicating it to show the features of coloring by ID. The outputs are a color image by ID, 
+and an unsigned short proximity map.
+
+-----------
+How to run
+-----------
+Most of the development was done on Linux. The steps for Linux are:
+
+1. Install the dependency packages: GLEW, OpenGL, GLFW, libpng.
+
+2. In the Ashigaru root directory, run:
+
+  $ md build
+  $ cd build
+  $ cmake ../
+  $ make
+  $ cd ..
+  $ build/ashigaru --slice 500   # or some other slice
+
+3. There will be two new files in the working direcrory: dump.png and 
+   depth.png. Enjoy.
+
+On windows: there is a VS project supplied. Build with it, and run. 
+Dependencies will be handled by NuGet. Make sure that the working 
+directory is the ashigaru root, because the paths to shaders are specified 
+relative to it.
+
+
+---------------
+How to complain
+---------------
+Either you know where to find me, or this project is not really up for collaboration. Sorry.
+
