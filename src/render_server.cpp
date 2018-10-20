@@ -73,7 +73,7 @@ void RenderServer::RenderThreadFunction() {
                     TiledView(req.render_action, req.full_width, req.full_height, m_tile_width, m_tile_height, req.geometry)
                 );
                 
-                req.ready.set_value(handle);
+                req.ready->set_value(handle);
                 m_view_requests.pop();
                 
                 continue;
@@ -119,10 +119,10 @@ std::future<RenderServer::ViewHandle> RenderServer::RegisterView(RenderAction& r
     
     std::lock_guard<std::mutex> lck{m_view_reqs_lock};
     m_view_requests.push(ViewRequest{
-        render_action, full_width, full_height, std::move(view_models), std::promise<ViewHandle>(),
+        render_action, full_width, full_height, std::move(view_models), std::make_shared<std::promise<ViewHandle>>(),
     });
     
-    return m_view_requests.back().ready.get_future();
+    return m_view_requests.back().ready->get_future();
 }
 
 std::vector<std::future<std::unique_ptr<char>>>
@@ -134,11 +134,11 @@ RenderServer::ViewSlice(ViewHandle view, size_t slice_num)
     req.view = view;
     
     for (size_t output = 0; output < tview.NumOutputs(); ++output)
-        req.promises.push_back(std::promise<std::unique_ptr<char>>{});
+        req.promises.push_back(std::make_shared<std::promise<std::unique_ptr<char>>>());
     
     std::vector<std::future<std::unique_ptr<char>>> images;
     for (auto& promise : req.promises)
-        images.push_back(promise.get_future());
+        images.push_back(promise->get_future());
     
     std::lock_guard<std::mutex> lck{m_slice_reqs_lock};
     m_slice_requests.push(std::move(req));

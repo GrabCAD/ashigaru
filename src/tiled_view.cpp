@@ -50,14 +50,14 @@ static bool CopyTileToResult(const char* source, Rect<unsigned int> tile_rect, c
  */
 static void SetPromisesWhenDone(
     std::shared_ptr<std::vector<std::future<bool>>> waiting_copies, 
-    std::vector<std::promise<std::unique_ptr<char>>>& promises, 
+    std::vector<std::shared_ptr<std::promise<std::unique_ptr<char>>>> promises, 
     std::vector<char*> image_bufs)
 {
     for (auto& job : *waiting_copies)
         job.get();
     
     for (unsigned int image = 0; image < (unsigned int)image_bufs.size(); ++image)
-        promises[image].set_value(std::unique_ptr<char>(image_bufs[image]));
+        promises[image]->set_value(std::unique_ptr<char>(image_bufs[image]));
 }
 
 /* TakeTouchingFaces() records all vertices of a model that belong to a face 
@@ -106,9 +106,9 @@ TiledView::TiledView(
     std::vector<std::shared_ptr<const Model>>& geometry
 )
     : m_render_action{render_action},
-      m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}, 
-      m_models{geometry} 
+      m_full_width{full_width}, m_full_height{full_height}, m_tile_width{tile_width}, m_tile_height{tile_height}
 {
+	m_models = geometry;
     m_render_action.InitGL();
     
     // Here we start representing the model. The vertex array holds
@@ -175,7 +175,7 @@ struct TileJob {
     unsigned int elem_size;
 };
 
-void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_ptr<char>>>& promises)
+void TiledView::Render(size_t slice_num, std::vector<std::shared_ptr<std::promise<std::unique_ptr<char>>>>& promises)
 {
     std::vector<unsigned int> output_sizes = m_render_action.OutputPixelSizes();
     std::vector<char*> image_bufs(output_sizes.size());
@@ -231,5 +231,5 @@ void TiledView::Render(size_t slice_num, std::vector<std::promise<std::unique_pt
     
     // Ensure copies finished. This can be done async because it has no OpenGL in it.
     std::async(std::launch::async, 
-        SetPromisesWhenDone, waiting_copies, std::ref(promises), image_bufs);
+        SetPromisesWhenDone, waiting_copies, promises, image_bufs);
 }

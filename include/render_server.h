@@ -35,7 +35,7 @@ namespace Ashigaru
             RenderAction& render_action;
             unsigned int full_width, full_height;
             std::vector<std::shared_ptr<const Model>> geometry;
-            std::promise<ViewHandle> ready;
+            std::shared_ptr<std::promise<ViewHandle>> ready;
         };
         std::queue<ViewRequest> m_view_requests;
         std::mutex m_view_reqs_lock;
@@ -44,7 +44,7 @@ namespace Ashigaru
         struct SliceRequest {
             ViewHandle view;
             size_t slice_num;
-            std::vector<std::promise<std::unique_ptr<char>>> promises; // Where to put the result.
+            std::vector<std::shared_ptr<std::promise<std::unique_ptr<char>>>> promises; // Where to put the result.
         };
         std::queue<SliceRequest> m_slice_requests;
         std::mutex m_slice_reqs_lock;
@@ -56,8 +56,8 @@ namespace Ashigaru
         RenderServer(unsigned int tile_width, unsigned int tile_height);
         ~RenderServer();
         
-        /* Copy models into the server and get handles for refering to them later. 
-         * Why copy? beause then we are free to transform the objects into the 
+        /* Copy models into the server and get handles for referring to them later. 
+         * Why copy? because then we are free to transform the objects into the 
          * tray just once, without altering the user's copy. That transform is
          * necessary to do in advance so that the tiling procedure can check which
          * vertices apply to which tile.
@@ -67,7 +67,7 @@ namespace Ashigaru
          */
         std::vector<ModelHandle> RegisterModels(const std::vector<std::shared_ptr<Model>> models);
         
-        /* Instruct the render thread to cunstruct a new view and ready it for 
+        /* Instruct the render thread to construct a new view and ready it for 
          * rendering - tiled or otherwise. 
          * 
          * Arguments:

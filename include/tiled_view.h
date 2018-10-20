@@ -50,6 +50,6 @@ namespace Ashigaru {
          * pointers to the images generated. The future becomes valid after all tiles
          * have been rendered and copied to their final place, in the background.
          */
-        void Render(size_t slice_num, std::vector<std::promise<std::unique_ptr<char>>>& promises);
+        void Render(size_t slice_num, std::vector<std::shared_ptr<std::promise<std::unique_ptr<char>>>>& promises);
     };
 }

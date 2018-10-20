@@ -28,7 +28,10 @@ public:
     VertexDB() : m_num_verts{0} {}
     VertexDB(unsigned int num_verts) : m_num_verts{num_verts} {}
     VertexDB(unsigned int num_verts, std::map<std::string, GLuint> buffs) 
-    : m_num_verts(num_verts), m_buffers{buffs} {}
+		: m_num_verts(num_verts) 
+	{
+		m_buffers = buffs;
+	}
     
     void SetNumVerts(unsigned int num_verts) {
         if (m_buffers.size() != 0)

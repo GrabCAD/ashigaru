@@ -16,8 +16,10 @@ namespace Ashigaru
         Corner m_topleft, m_bottomright;
         
     public:
-        Rect(DT top, DT left, DT bottom, DT right) 
-            : m_topleft{Corner{top, left}}, m_bottomright{Corner{bottom, right}} {}
+        Rect(DT top, DT left, DT bottom, DT right) {
+			m_topleft = Corner{ top, left };
+			m_bottomright = Corner{ bottom, right };
+		}
         
         Rect(Corner topleft, Corner bottomright)
             : m_topleft{topleft}, m_bottomright{bottomright} {}
