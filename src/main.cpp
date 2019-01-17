@@ -76,19 +76,23 @@ int main(int argc, char **argv) {
     // Render slices:
 	std::cout << "Slicing: " << std::endl;
 	std::vector<std::future<std::unique_ptr<char>>> res;
-	for (size_t slice = 0; slice < 100; ++slice) {
-		res = server.ViewSlice(view, slice);
-		std::unique_ptr<char> data = res[0].get();
-		data = res[1].get();
+	bool batch = vm["slice"].as<size_t>() == 0;
+	if (batch) {
+		for (size_t slice = 0; slice < 100; ++slice) {
+			res = server.ViewSlice(view, slice);
+			std::unique_ptr<char> data = res[0].get();
+			data = res[1].get();
+		}
 	}
-    
-    // wait for results and save them:
-    /*std::unique_ptr<char> data = std::move(res[0].get());
-    writeImage("dump.png", 2*width, height, ImageType::Color, data.get(), "Ashigaru slice");
-    
-    data = res[1].get();
-    writeImage("depth.png", 2*width, height, ImageType::Gray, data.get(), "Ashigaru depth");
-    */
+	else {
+		res = server.ViewSlice(view, vm["slice"].as<size_t>());
+		// wait for results and save them:
+		std::unique_ptr<char> data = std::move(res[0].get());
+		writeImage("dump.png", 2 * width, height, ImageType::Color, data.get(), "Ashigaru slice");
+
+		data = res[1].get();
+		writeImage("depth.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru depth");
+	}
     std::cout << "Healthy finish!" << std::endl;
     return 0;
 }
