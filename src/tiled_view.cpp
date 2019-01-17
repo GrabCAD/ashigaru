@@ -74,30 +74,36 @@ static void SetPromisesWhenDone(
 static unsigned int TakeTouchingFaces(
     const Model& model, const Rect<unsigned int> region, std::vector<Vertex>& taken_verts)
 {
-    std::set<size_t> vertex_inds;
-    for (const Triangle& face : model.second) {
-        // Two passes on each face: (a) check if touches tile, 
-        // (b) if so, record all vertices in face.
-        bool touch = std::any_of(
-            face.begin(), face.end(), 
-            [&vertex_inds, &model, &region](Triangle::value_type ind) {
-                if (vertex_inds.count(ind) == 1) return true;
-                const Vertex& vert = model.first[ind];
-                return (vert.x >= region.left() && vert.x <= region.right() &&
-                    vert.y >= region.bottom() && vert.y <= region.top());
-            }
-        );
-        if (!touch) continue;
-        
-        vertex_inds.insert(face.begin(), face.end());
-    }
+	std::vector<bool> taken(model.first.size());
+	// Check which vertices incident on region:
+	for (size_t vertIx = 0; vertIx < model.first.size(); ++vertIx) {
+		const Vertex& vert = model.first[vertIx];
+		if (vert.x >= region.left() && vert.x <= region.right() &&
+			vert.y >= region.bottom() && vert.y <= region.top())
+		{
+			taken[vertIx] = true;
+		}
+	}
+	// Complete marking vertices of faces that have one touching vertex.
+	for (const Triangle& face : model.second) {
+		bool touch = std::any_of(
+			face.begin(), face.end(),
+			[&taken](Triangle::value_type ind) {return taken[ind]; }
+		);
+		if (touch)
+			for (auto ind : face)
+				taken[ind] = true;
+	}
+
+	// Convert to vertex vector.
+	for (size_t vertIx = 0; vertIx < model.first.size(); ++vertIx) {
+		if (taken[vertIx])
+			taken_verts.push_back(model.first[vertIx]);
+	}
     // Another future improvement: hold the vertices in a way more conducive to 
     // tile division. Anyway, this very suboptimal version will do for now.
     
-    for (auto vert_ind : vertex_inds)
-        taken_verts.push_back(model.first[vert_ind]);
-    
-    return static_cast<unsigned int>(vertex_inds.size());
+    return static_cast<unsigned int>(taken_verts.size());
 }
 
 TiledView::TiledView(
