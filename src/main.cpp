@@ -75,8 +75,12 @@ int main(int argc, char **argv) {
     
     // Render slices:
 	std::cout << "Slicing: " << std::endl;
-	for (size_t slice = 0; slice < 100; ++slice)
-		std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, slice);
+	std::vector<std::future<std::unique_ptr<char>>> res;
+	for (size_t slice = 0; slice < 100; ++slice) {
+		res = server.ViewSlice(view, slice);
+		std::unique_ptr<char> data = res[0].get();
+		data = res[1].get();
+	}
     
     // wait for results and save them:
     /*std::unique_ptr<char> data = std::move(res[0].get());
