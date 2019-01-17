@@ -58,7 +58,7 @@ GLuint TestRenderAction::SetupRenderTarget(unsigned int width, unsigned int heig
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     
     glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width, height);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, width, height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
     
     // Generate two textures for depth (looking up, looking down). The textures will later be 
@@ -152,7 +152,7 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
-    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 4, GL_RGBA, GL_UNSIGNED_BYTE));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 4, GL_RGBA, GL_UNSIGNED_SHORT));
     
     // Second render: looking down. Only depth is needed. However, if we set draw 
     // buffer to GL_NONE, color is trampled and nobody cares that it's been a subject 
