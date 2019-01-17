@@ -11,6 +11,9 @@
 #include "opengl_utils.h"
 #include "render_server.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/string_cast.hpp>
+
 int main(int argc, char **argv) {
     namespace po = boost::program_options;
 
@@ -41,27 +44,21 @@ int main(int argc, char **argv) {
     
     // Load a model, do Q&D size-to-fit and then duplicate it.
     // the two models are the (possibly) rendered scene.
-    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/crystal.stl"));
+    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/donkey.stl"));
     Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
     for (auto& vertex : geometry->first) // find bounding box
     {
-        maxV = {
-            std::max(vertex[0], maxV[0]),
-            std::max(vertex[1], maxV[1]),
-            std::max(vertex[2], maxV[2])
-        };
-        minV = {
-            std::min(vertex[0], minV[0]),
-            std::min(vertex[1], minV[1]),
-            std::min(vertex[2], minV[2])
-        };
+		maxV = glm::max(vertex, maxV);
+        minV = glm::min(vertex, minV); 
     }
     glm::vec3 dims = maxV - minV;
+	Vertex::value_type maxDim = std::max({ dims.x, dims.y, dims.z });
     glm::vec3 scale_factor = {width, width, width};
-    for (auto& vertex : geometry->first) {
-        vertex = (vertex - minV) / dims * scale_factor;
-        std::cout << vertex.x << ", " << vertex.y << ", " << vertex.z << std::endl;
-    }
+	for (auto& vertex : geometry->first) {
+		vertex = (vertex - minV) / maxDim * scale_factor;
+	}
+	std::cout << glm::to_string(minV) << std::endl;
+	std::cout << glm::to_string(maxV) << std::endl;
     
     std::shared_ptr<Model> partner_geom {new Model{*geometry}};
     for (auto& vertex : partner_geom->first) {
@@ -76,16 +73,18 @@ int main(int argc, char **argv) {
     auto models = server.RegisterModels(std::vector<std::shared_ptr<Model>>{geometry, partner_geom});
     auto view = server.RegisterView(program, 2*width, height, models).get();
     
-    // Render slice:
-    std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());
+    // Render slices:
+	std::cout << "Slicing: " << std::endl;
+	for (size_t slice = 0; slice < 100; ++slice)
+		std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, slice);
     
     // wait for results and save them:
-    std::unique_ptr<char> data = std::move(res[0].get());
+    /*std::unique_ptr<char> data = std::move(res[0].get());
     writeImage("dump.png", 2*width, height, ImageType::Color, data.get(), "Ashigaru slice");
     
     data = res[1].get();
     writeImage("depth.png", 2*width, height, ImageType::Gray, data.get(), "Ashigaru depth");
-    
+    */
     std::cout << "Healthy finish!" << std::endl;
     return 0;
 }
