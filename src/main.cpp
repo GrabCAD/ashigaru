@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 // #include <fstream> // needed when dumping raw data instead of PNG image, for debugging.
 
 #include <GL/glew.h>
@@ -75,17 +76,29 @@ int main(int argc, char **argv) {
     
     // Render slices:
 	std::cout << "Slicing: " << std::endl;
-	std::vector<std::future<std::unique_ptr<char>>> res;
 	bool batch = vm["slice"].as<size_t>() == 0;
 	if (batch) {
-		for (size_t slice = 0; slice < 100; ++slice) {
-			res = server.ViewSlice(view, slice);
-			std::unique_ptr<char> data = res[0].get();
-			data = res[1].get();
+		std::vector<std::vector<std::future<std::unique_ptr<char>>>> slices;
+
+		auto start = std::chrono::system_clock::now();
+		for (size_t slice = 0; slice < 500; ++slice) {
+			slices.push_back(server.ViewSlice(view, slice));
 		}
+		auto end = std::chrono::system_clock::now();
+
+		while (slices.size()) {
+			auto& slice = slices.back();
+			slice[0].get();
+			slice[1].get();
+			slices.pop_back();
+		}
+		auto fullEnd = std::chrono::system_clock::now();
+
+		std::cout << "Sending slice instructions: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << std::endl;
+		std::cout << "Finish all slices: " << std::chrono::duration_cast<std::chrono::milliseconds>(fullEnd - start).count() << std::endl;
 	}
 	else {
-		res = server.ViewSlice(view, vm["slice"].as<size_t>());
+		std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());
 		// wait for results and save them:
 		std::unique_ptr<char> data = std::move(res[0].get());
 		writeImage("dump.png", 2 * width, height, ImageType::Color, data.get(), "Ashigaru slice");
