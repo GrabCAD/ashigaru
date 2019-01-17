@@ -211,7 +211,8 @@ void TiledView::Render(size_t slice_num, std::vector<std::shared_ptr<std::promis
     // Wait for GPU to finish tiles, and send finished tiles to placement.
     using WaitingVec = std::vector<std::future<bool>>;
     std::shared_ptr<WaitingVec> waiting_copies = std::make_shared<WaitingVec>();
-    
+	std::vector<GLuint> discardablePBOs;
+
     auto job = tile_jobs.cbegin();
     while(!tile_jobs.empty()) {
         if (job == tile_jobs.cend())
@@ -228,6 +229,7 @@ void TiledView::Render(size_t slice_num, std::vector<std::shared_ptr<std::promis
             ));
             
             auto erase_pos = job++;
+			discardablePBOs.push_back(job->pbo);
             tile_jobs.erase(erase_pos);
         }
         else {
@@ -238,4 +240,7 @@ void TiledView::Render(size_t slice_num, std::vector<std::shared_ptr<std::promis
     // Ensure copies finished. This can be done async because it has no OpenGL in it.
     std::async(std::launch::async, 
         SetPromisesWhenDone, waiting_copies, promises, image_bufs);
+
+	for (auto pbo : discardablePBOs)
+		glDeleteBuffers(1, &pbo);
 }
