@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
 		std::vector<std::future<std::unique_ptr<char>>> res = server.ViewSlice(view, vm["slice"].as<size_t>());
 		// wait for results and save them:
 		std::unique_ptr<char> data = std::move(res[0].get());
-		writeImage("dump.png", 2 * width, height, ImageType::Color, data.get(), "Ashigaru slice");
+		writeImage("dump.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru slice");
 
 		data = res[1].get();
 		writeImage("depth.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru depth");

@@ -93,7 +93,7 @@ namespace Ashigaru {
         virtual std::vector<RenderAsyncResult> StartRender(VertexDB vertices) override;
         
         // first return is RGBA color, 1 byte per channel. Second is ushort.
-        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{4, 2}; }
+        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{2, 2}; }
         
     // Scratch data for rendering. Generated in preparation of slice or tile,
     // and used in the actual rendering.

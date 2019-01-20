@@ -152,7 +152,7 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) 
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
-    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 4, GL_RGBA, GL_UNSIGNED_SHORT));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     // Second render: looking down. Only depth is needed. However, if we set draw 
     // buffer to GL_NONE, color is trampled and nobody cares that it's been a subject 
