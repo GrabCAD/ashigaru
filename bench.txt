@@ -1,0 +1,11 @@
+Vanilla (stencils branch):
+Sending slice instructions: 5865
+Finish all slices: 5923
+
+Vanilla (no stencils):
+Sending slice instructions: 5712
+Finish all slices: 5770
+
+Added a map:
+Sending slice instructions: 8124
+Finish all slices: 8206
