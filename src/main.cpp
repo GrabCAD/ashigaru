@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 		std::vector<std::vector<std::future<std::unique_ptr<char>>>> slices;
 
 		auto start = std::chrono::system_clock::now();
-		for (size_t slice = 0; slice < 500; ++slice) {
+		for (size_t slice = 0; slice < 100; ++slice) {
 			slices.push_back(server.ViewSlice(view, slice));
 		}
 		auto end = std::chrono::system_clock::now();

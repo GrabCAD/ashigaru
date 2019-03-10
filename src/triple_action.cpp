@@ -26,7 +26,7 @@ void TripleAction::InitGL() {
     glGenRenderbuffers(1, &render_buf);    
     glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
     
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, m_width, m_height);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, m_width, m_height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
     
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -38,7 +38,7 @@ bool TripleAction::PrepareTile(Rect<unsigned int> tile_rect) {
     Rect<unsigned int>::Corner br = tile_rect.getBottomRight();
     unsigned int tw = tile_rect.Width();
     unsigned int th = tile_rect.Height();
-    glm::mat4 projection { glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f) };
+    glm::mat4 projection { glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), -2048.f, 2048.f) };
     
     glm::mat4 view = glm::lookAt(
         glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
@@ -92,7 +92,7 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
     glDisableVertexAttribArray(0);
-    ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_RED, GL_UNSIGNED_SHORT));
+    ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT));
     
     return ret;
 }
