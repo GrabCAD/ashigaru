@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     
     // Load a model, do Q&D size-to-fit and then duplicate it.
     // the two models are the (possibly) rendered scene.
-    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/donkey.stl"));
+    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/Donkey.stl"));
     Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
     for (auto& vertex : geometry->first) // find bounding box
     {
@@ -81,7 +81,7 @@ int main(int argc, char **argv) {
 		std::vector<std::vector<std::future<std::unique_ptr<char>>>> slices;
 
 		auto start = std::chrono::system_clock::now();
-		for (size_t slice = 0; slice < 500; ++slice) {
+		for (size_t slice = 0; slice < 100; ++slice) {
 			slices.push_back(server.ViewSlice(view, slice));
 		}
 		auto end = std::chrono::system_clock::now();
@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
 			auto& slice = slices.back();
 			slice[0].get();
 			slice[1].get();
+            slice[2].get();
 			slices.pop_back();
 		}
 		auto fullEnd = std::chrono::system_clock::now();
@@ -105,6 +106,9 @@ int main(int argc, char **argv) {
 
 		data = res[1].get();
 		writeImage("depth.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru depth");
+        
+        data = res[2].get();
+		writeImage("heightids.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru height IDs");
 	}
     std::cout << "Healthy finish!" << std::endl;
     return 0;

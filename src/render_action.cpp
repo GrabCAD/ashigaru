@@ -50,16 +50,20 @@ void TestRenderAction::InitGL()
 
 GLuint TestRenderAction::SetupRenderTarget(unsigned int width, unsigned int height)
 {
-    GLuint render_buf;
+    GLuint render_buf[2];
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
-    glGenRenderbuffers(1, &render_buf);
+    glGenRenderbuffers(2, render_buf);
     
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     
-    glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+    glBindRenderbuffer(GL_RENDERBUFFER, render_buf[0]);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf[0]);
+    
+    glBindRenderbuffer(GL_RENDERBUFFER, render_buf[1]);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_RENDERBUFFER, render_buf[1]);
     
     // Generate two textures for depth (looking up, looking down). The textures will later be 
     // Combined by quad rendering ("deferred shading")
@@ -138,6 +142,9 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) 
     glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
     glUseProgram(m_full_program);
     
+    GLenum buffs[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    glDrawBuffers(1, buffs); // second one not used here, only later.
+    
     GLuint MatrixID = glGetUniformLocation(m_full_program, "projection");
     
     // First render: look up.
@@ -186,7 +193,8 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) 
     glEnableVertexAttribArray(1);
     glBindBuffer(GL_ARRAY_BUFFER, m_quad_uv_buffer);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
+    
+    glDrawBuffers(2, buffs);
     glDisable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
@@ -195,6 +203,7 @@ std::vector<RenderAsyncResult> TestRenderAction::StartRender(VertexDB vertices) 
     glDisableVertexAttribArray(0);
     
     ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT1, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     // Return sync objects:
     return ret;
