@@ -108,6 +108,9 @@ int main(int argc, char **argv) {
 
 		data = res[1].get();
 		writeImage("heightID.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru height ID");
+        
+        data = res[2].get();
+		writeImage("cross.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru cross section");
 	}
     std::cout << "Healthy finish!" << std::endl;
     return 0;
