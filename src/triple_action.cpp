@@ -19,23 +19,52 @@ void TripleAction::InitGL() {
     
     // Prepare frame buffers for the separate renders, for convenience.
     // This needs to be seriously benchmarked.
-    glGenFramebuffers(1, &m_height_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
+    {
+        glGenFramebuffers(1, &m_height_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
+        
+        // Depth buffer:
+        GLuint render_buf;
+        glGenRenderbuffers(1, &render_buf);
+        glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+        
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, m_width, m_height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
+        
+        // Height buffer:
+        glGenRenderbuffers(1, &render_buf);
+        glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+        
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, m_width, m_height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
+        
+        if (!(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE))
+            throw std::runtime_error("Failed to initialize height framebuf.");
+    }
     
-    // Depth buffer:
-    GLuint render_buf;
-    glGenRenderbuffers(1, &render_buf);
-    glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
-    
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, m_width, m_height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
-    
-    // Height buffer:
-    glGenRenderbuffers(1, &render_buf);
-    glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
-    
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, m_width, m_height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
+    // Stencil and cross-section:
+    {
+        glGenFramebuffers(1, &m_stencil_fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, m_stencil_fbo);
+        
+        // Depth/stencil buffer:
+        GLuint render_buf;
+        glGenRenderbuffers(1, &render_buf);
+        glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+        
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, m_width, m_height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, render_buf);       
+        
+        // Cross-section (color) buffer:
+        glGenRenderbuffers(1, &render_buf);
+        glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+        
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, m_width, m_height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
+        
+        if (!(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE))
+            throw std::runtime_error("Failed to initialize stencil framebuf.");
+    }
     
     // Finish without side effects:
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -61,6 +90,9 @@ bool TripleAction::PrepareTile(Rect<unsigned int> tile_rect) {
     glm::mat4 mirror_image = glm::scale(glm::mat4(1.0f), glm::vec3{-1, 1, 1});
     m_look_up = mirror_image*projection*view;
     
+    glm::mat4 projection_crop { glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), 0.f, 2048.f) };
+    m_crop_up = mirror_image*projection_crop*view;
+
     // Now look down from the same place:   
     view = glm::lookAt(
         glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
@@ -104,9 +136,42 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
-    glDisableVertexAttribArray(1);
-    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(pos_attribute + 1);
     ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
+    
+    // ---- Now the cross-section in two renders: stencil followed by color.
+    glBindFramebuffer(GL_FRAMEBUFFER, m_stencil_fbo);
+    glUseProgram(m_stencil_program);
+    
+    MatrixID = glGetUniformLocation(m_stencil_program, "projection");
+    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
+    
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
+    
+    glStencilFunc(GL_NEVER, 0, -1);
+    glStencilOpSeparate(GL_FRONT, GL_INCR_WRAP, GL_KEEP, GL_KEEP);
+    glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_KEEP, GL_KEEP);
+    
+    glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, num_verts);
+
+    glEnable(GL_DEPTH_TEST);
+    glStencilFunc(GL_NOTEQUAL, 0, -1);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    
+    glUseProgram(m_color_program);
+    MatrixID = glGetUniformLocation(m_color_program, "projection");
+    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
+    glEnableVertexAttribArray(pos_attribute + 1);
+    
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, num_verts);
+    
+    // Clean up.
+    glDisableVertexAttribArray(pos_attribute + 1);
+    glDisableVertexAttribArray(pos_attribute);
     ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     return ret;

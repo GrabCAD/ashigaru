@@ -11,11 +11,11 @@ namespace Ashigaru {
         // 3 renders per tile, generating 3 maps. 
         // currently considering no priorities (which would require more renders).
         GLuint m_height_program, m_stencil_program, m_color_program;
-        GLuint m_height_fbo;
+        GLuint m_height_fbo, m_stencil_fbo;
         
         // Scratch data for rendering. Generated in preparation of slice or tile,
         // and used in the actual rendering.
-        glm::mat4 m_look_up, m_look_down;
+        glm::mat4 m_look_up, m_look_down, m_crop_up;
         
     public:
         TripleAction(unsigned int width, unsigned int height);
@@ -25,7 +25,7 @@ namespace Ashigaru {
         virtual bool PrepareSlice(size_t slice_num) override { m_slice = slice_num; return true; }
         virtual std::vector<RenderAsyncResult> StartRender(VertexDB vertices) override;
         
-        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{2, 2}; }
+        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{2, 2, 2}; }
         
     private:
         /* CommitBufferAsync() starts a read from GL to memory of one of the buffers in the frame buffer.
