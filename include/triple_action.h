@@ -25,7 +25,7 @@ namespace Ashigaru {
         virtual bool PrepareSlice(size_t slice_num) override { m_slice = slice_num; return true; }
         virtual std::vector<RenderAsyncResult> StartRender(VertexDB vertices) override;
         
-        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{2}; }
+        virtual std::vector<unsigned int> OutputPixelSizes() const override { return std::vector<unsigned int>{2, 2}; }
         
     private:
         /* CommitBufferAsync() starts a read from GL to memory of one of the buffers in the frame buffer.
