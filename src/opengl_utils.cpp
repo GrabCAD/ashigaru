@@ -82,12 +82,17 @@ GLuint LoadShaders(const char* vertex_file_path, const char* fragment_file_path,
 	}
 
 	glDetachShader(ProgramID, vshader);
-	glDetachShader(ProgramID, fshader);
-	glDetachShader(ProgramID, geom_shader);
-
-	glDeleteShader(vshader);
-	glDeleteShader(fshader);
-    glDeleteShader(geom_shader);
-
+    glDeleteShader(vshader);
+	
+    if (fshader) {
+        glDetachShader(ProgramID, fshader);
+		glDeleteShader(fshader);
+    }
+    
+    if (geom_shader) {
+        glDetachShader(ProgramID, geom_shader);
+        glDeleteShader(geom_shader);
+    }
+    
 	return ProgramID;
 }
