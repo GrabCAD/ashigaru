@@ -21,16 +21,26 @@ int main(int argc, char **argv) {
 
     po::options_description desc("Allowed options");
     desc.add_options()
-            ("model-path", po::value<std::string>(), "STL file to render.")
-            ("repeats", po::value<unsigned int>()->default_value(1u), "The model will be repeated this many columns and this many rows.")
-            ("img-size", po::value<unsigned int>()->default_value(2048u), "Side of square image generated.")
-            ("tile-size", po::value<unsigned int>()->default_value(1024u), "Side of square tile for rendering.")
-            ("slice", po::value<size_t>()->default_value(0u))
+		("help", "produce help message")
+        ("model-path", po::value<std::string>(), "STL file to render.")
+        ("repeats", po::value<unsigned int>()->default_value(1u), "The model will be repeated this many columns and this many rows.")
+        ("img-size", po::value<unsigned int>()->default_value(2048u), "Side of square image generated.")
+        ("tile-size", po::value<unsigned int>()->default_value(1024u), "Side of square tile for rendering.")
+        ("slice", po::value<size_t>()->default_value(0u), "If given, do this slice with PNG outputs. Otherwise perform a no-output benchmark")
     ;
 
+	po::positional_options_description p;
+	p.add("model-path", -1);
+
     po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc), vm);
+	po::store(po::command_line_parser(argc, argv).
+		options(desc).positional(p).run(), vm);
     po::notify(vm);
+
+	if (vm.count("help")) {
+		std::cout << desc << "\n";
+		return 1;
+	}
 
     // Initialise GLFW
     glewExperimental = true; // Needed for core profile
@@ -40,15 +50,14 @@ int main(int argc, char **argv) {
         return -1;
     }
     
-    // A shaderProgram is responsible for drawing into its own frame buffer.
+    // Extract command-line arguments for more convenient use.
     unsigned int width = vm["img-size"].as<unsigned int>();
     unsigned int height = width;
     unsigned int tile_width = vm["tile-size"].as<unsigned int>();
     unsigned int tile_height = tile_width;
     unsigned int repeats = vm["repeats"].as<unsigned int>();
     
-    // Load a model, do Q&D size-to-fit and then duplicate it.
-    // the two models are the (possibly) rendered scene.
+    // Load a model, get its dimentions for sizing/fitting.
     std::shared_ptr<Model> geometry = std::make_shared<Model>( readBinarySTL(vm["model-path"].as<std::string>().c_str()) );
     Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
     for (auto& vertex : geometry->first) // find bounding box
@@ -59,6 +68,7 @@ int main(int argc, char **argv) {
     glm::vec3 dims = maxV - minV;
 	Vertex::value_type maxDim = std::max({ dims.x, dims.y, dims.z });
 
+    // Size the model so that the requested number of repeats fits in width.
 	float targetModelWidth = float(width) / float(repeats);
     glm::vec3 scale_factor = { targetModelWidth, targetModelWidth, targetModelWidth };
 	for (auto& vertex : geometry->first) {
@@ -81,7 +91,9 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-    
+
+    // ------   Scene is ready, now process it. ------------ //
+
     // Start the render server:
     Ashigaru::RenderServer server(tile_width, tile_height);
     
