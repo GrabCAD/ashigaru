@@ -1,6 +1,6 @@
 #version 330 core
 
-flat in uint shellID;
+uniform uint shellID;
 out vec4 color;
 
 void main(){

@@ -11,7 +11,7 @@
  *    by the application.
  * 2. TiledView can do vertex selections without knowing what each vertex 
  *    carries. In the future, it will enable RenderAction to produce the 
- *    full image data from models, while ?TiledView will only do the 
+ *    full image data from models, while TiledView will only do the 
  *    filtering. Alternatively, TiledView will construct a DB with pos and ID, 
  *    then RenderAction will load it with whatever else based on that data.
  * 3. We can add to this class vertex indexing/selection such that we can 
@@ -22,25 +22,23 @@
 
 class VertexDB {
     std::map<std::string, GLuint> m_buffers;
-    unsigned int m_num_verts;
+    std::vector<std::pair<size_t, size_t>> m_model_index; // (first vertex index, block length)
     
 public:
-    VertexDB() : m_num_verts{0} {}
-    VertexDB(unsigned int num_verts) : m_num_verts{num_verts} {}
-    VertexDB(unsigned int num_verts, std::map<std::string, GLuint> buffs) 
-		: m_num_verts(num_verts) 
+    VertexDB()  {}
+    VertexDB(std::map<std::string, GLuint> buffs) 
 	{
 		m_buffers = buffs;
 	}
     
-    void SetNumVerts(unsigned int num_verts) {
-        if (m_buffers.size() != 0)
-            throw std::runtime_error("Attempt to resize GL buffers.");
-        m_num_verts = num_verts;
-    }
     void AddBuffers(const std::map<std::string, GLuint>& buffs) { m_buffers.insert(buffs.begin(), buffs.end()); }
     void AddBuffer(const std::string& name, GLuint buff) { m_buffers[name] = buff; }
-    
     GLuint GetBuffer(const std::string& name) const { return m_buffers.at(name); }
-    unsigned int VertexCount() { return m_num_verts; }
+
+    // Adds a bookmark for block of vertices, using indices into the vertex buffer
+    // recorded by AddBuffer*(). This is very rudimentary now, just to try things out.
+    void AddModelIndex(size_t start, size_t length) {
+        m_model_index.push_back(std::make_pair(start, length));
+    }
+    const std::vector<std::pair<size_t, size_t>>& GetModelIndex() const { return m_model_index; }
 };

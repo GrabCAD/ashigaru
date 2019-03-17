@@ -159,17 +159,18 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\.editorconfig" />
     <None Include="..\..\shaders\frag.glsl" />
+    <None Include="..\..\shaders\height_frag.glsl" />
+    <None Include="..\..\shaders\height_geom.glsl" />
     <None Include="..\..\shaders\passthrough.vertex.glsl" />
     <None Include="..\..\shaders\take_min.glsl" />
     <None Include="..\..\shaders\vertex.glsl" />
-    <None Include=".editorconfig" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\main.cpp" />
     <ClCompile Include="..\..\src\opengl_utils.cpp" />
-    <ClCompile Include="..\..\src\render_action.cpp" />
     <ClCompile Include="..\..\src\render_server.cpp" />
     <ClCompile Include="..\..\src\tiled_view.cpp" />
     <ClCompile Include="..\..\src\triple_action.cpp" />

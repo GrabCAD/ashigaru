@@ -110,20 +110,16 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     std::vector<RenderAsyncResult> ret;
     
     GLuint PosBufferID = vertices.GetBuffer("positions");
-    GLuint IDBufferID = vertices.GetBuffer("shellIDs");
-    unsigned int num_verts = vertices.VertexCount();
-    
+    auto modelIndex = vertices.GetModelIndex();
+
     // Height render setup:
     glEnableVertexAttribArray(pos_attribute);
     glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
     glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-
-    glEnableVertexAttribArray(pos_attribute + 1);
-    glBindBuffer(GL_ARRAY_BUFFER, IDBufferID);
-    glVertexAttribPointer(pos_attribute + 1, 1, GL_UNSIGNED_SHORT, GL_FALSE, 0, (void*)0);
-    
+        
     glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
     glUseProgram(m_height_program);
+    GLuint shellUniLoc = glGetUniformLocation(m_height_program, "shellID");
     
     GLuint MatrixID = glGetUniformLocation(m_height_program, "projection");
     glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_look_up[0][0]);
@@ -134,43 +130,52 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     glDepthFunc(GL_LESS);
     glClearDepth(1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, num_verts);
+    for (size_t modelNum = 0; modelNum < modelIndex.size(); modelNum++) {
+        auto& model = modelIndex[modelNum];
+        glUniform1ui(shellUniLoc, modelNum);
+        glDrawArrays(GL_TRIANGLES, model.first, model.second);
+    }
     
-    glDisableVertexAttribArray(pos_attribute + 1);
     ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT));
     ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     // ---- Now the cross-section in two renders: stencil followed by color.
     glBindFramebuffer(GL_FRAMEBUFFER, m_stencil_fbo);
-    glUseProgram(m_stencil_program);
-    
-    MatrixID = glGetUniformLocation(m_stencil_program, "projection");
-    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
-    
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_STENCIL_TEST);
-    
-    glStencilFunc(GL_NEVER, 0, -1);
-    glStencilOpSeparate(GL_FRONT, GL_INCR_WRAP, GL_KEEP, GL_KEEP);
-    glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_KEEP, GL_KEEP);
-    
-    glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, num_verts);
+    glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glEnable(GL_DEPTH_TEST);
-    glStencilFunc(GL_NOTEQUAL, 0, -1);
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    
-    glUseProgram(m_color_program);
-    MatrixID = glGetUniformLocation(m_color_program, "projection");
-    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
-    glEnableVertexAttribArray(pos_attribute + 1);
-    
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    glDrawArrays(GL_TRIANGLES, 0, num_verts);
-    
+    for (size_t modelNum = 0; modelNum < modelIndex.size(); modelNum++) {
+        auto& model = modelIndex[modelNum];
+
+        glUseProgram(m_stencil_program);
+        glUniform1ui(glGetUniformLocation(m_stencil_program, "shellID"), modelNum);
+
+        MatrixID = glGetUniformLocation(m_stencil_program, "projection");
+        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
+
+        glDisable(GL_DEPTH_TEST);
+        glEnable(GL_STENCIL_TEST);
+
+        glStencilFunc(GL_NEVER, 0, -1);
+        glStencilOpSeparate(GL_FRONT, GL_INCR_WRAP, GL_KEEP, GL_KEEP);
+        glStencilOpSeparate(GL_BACK, GL_DECR_WRAP, GL_KEEP, GL_KEEP);
+
+        glDrawArrays(GL_TRIANGLES, model.first, model.second);
+
+        glEnable(GL_DEPTH_TEST);
+        glStencilFunc(GL_NOTEQUAL, 0, -1);
+        glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+        glUseProgram(m_color_program);
+        glUniform1ui(glGetUniformLocation(m_color_program, "shellID"), modelNum);
+
+        MatrixID = glGetUniformLocation(m_color_program, "projection");
+        glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_crop_up[0][0]);
+        glEnableVertexAttribArray(pos_attribute + 1);
+
+        glDrawArrays(GL_TRIANGLES, model.first, model.second);
+    }
+
     // Clean up.
-    glDisableVertexAttribArray(pos_attribute + 1);
     glDisableVertexAttribArray(pos_attribute);
     ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
