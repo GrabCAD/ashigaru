@@ -142,24 +142,18 @@ TiledView::TiledView(
             // if a face touches the tile, take all its vertices to this tile's list.
             // Future: maybe just work with faces and glDrawElements()?
             std::vector<Vertex> tile_verts;
-            std::vector<unsigned short> shell_IDs;
-            unsigned short shell_ID = 0;
+            size_t start = 0;
             for (auto model : m_models) {
                 auto num_taken = TakeTouchingFaces(*model, tile.region, tile_verts);
-                shell_IDs.insert(shell_IDs.end(), num_taken, shell_ID++ );
+                tile.vertices.AddModelIndex(start, num_taken);
+                start += num_taken;
             }
-            tile.vertices.SetNumVerts(tile_verts.size());
             
             GLuint vert_buf, shellIds_buf;
             glGenBuffers(1, &vert_buf);
             glBindBuffer(GL_ARRAY_BUFFER, vert_buf);
             glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
             tile.vertices.AddBuffer("positions", vert_buf);
-            
-            glGenBuffers(1, &shellIds_buf);
-            glBindBuffer(GL_ARRAY_BUFFER, shellIds_buf);
-            glBufferData(GL_ARRAY_BUFFER, shell_IDs.size()*sizeof(unsigned short), shell_IDs.data(), GL_STATIC_DRAW);
-            tile.vertices.AddBuffer("shellIDs", shellIds_buf);
             
             m_tiles.push_back(tile);
         }
