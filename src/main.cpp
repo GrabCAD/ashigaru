@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <chrono>
 // #include <fstream> // needed when dumping raw data instead of PNG image, for debugging.
 
@@ -6,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>   
 
 #include "util.h"
 #include "geometry.h"
@@ -22,7 +24,10 @@ int main(int argc, char **argv) {
     po::options_description desc("Allowed options");
     desc.add_options()
 		("help", "produce help message")
-        ("model-path", po::value<std::string>(), "STL file to render.")
+        ("models-file", po::value<std::string>(),
+            "Text file, each line is an STL file to render. "
+            "Model vertices are assumed to be in assembly coordinates. "
+            "Can be a single STL file name instead (detected by extension).")
         ("repeats", po::value<unsigned int>()->default_value(1u), "The model will be repeated this many columns and this many rows.")
         ("img-size", po::value<unsigned int>()->default_value(2048u), "Side of square image generated.")
         ("tile-size", po::value<unsigned int>()->default_value(1024u), "Side of square tile for rendering.")
@@ -30,7 +35,7 @@ int main(int argc, char **argv) {
     ;
 
 	po::positional_options_description p;
-	p.add("model-path", -1);
+	p.add("models-file", -1);
 
     po::variables_map vm;
 	po::store(po::command_line_parser(argc, argv).
@@ -42,57 +47,78 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-    // Initialise GLFW
-    glewExperimental = true; // Needed for core profile
-    if( !glfwInit() )
-    {
-        std::cerr << "Failed to initialize GLFW\n";
-        return -1;
-    }
-    
     // Extract command-line arguments for more convenient use.
     unsigned int width = vm["img-size"].as<unsigned int>();
     unsigned int height = width;
     unsigned int tile_width = vm["tile-size"].as<unsigned int>();
     unsigned int tile_height = tile_width;
     unsigned int repeats = vm["repeats"].as<unsigned int>();
-    
-    // Load a model, get its dimentions for sizing/fitting.
-    std::shared_ptr<Model> geometry = std::make_shared<Model>( readBinarySTL(vm["model-path"].as<std::string>().c_str()) );
-    Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
-    for (auto& vertex : geometry->first) // find bounding box
-    {
-		maxV = glm::max(vertex, maxV);
-        minV = glm::min(vertex, minV); 
+
+    // Determine which models to load.
+    std::vector<std::string> modelNames;
+    std::string modelsFile = vm["models-file"].as<std::string>();
+    if (boost::algorithm::to_lower_copy(modelsFile.substr(modelsFile.length() - 3)) == "stl") {
+        modelNames.push_back(modelsFile);
+    }
+    else {
+        std::ifstream is(modelsFile);
+        std::istream_iterator<std::string> start(is), end;
+        modelNames = std::vector<std::string>(start, end);
+    }
+
+    // Load aach model, get its dimentions for sizing/fitting.
+    std::vector<std::shared_ptr<Model>> masterAssembly;
+
+    float fltMax = std::numeric_limits<float>::max();
+    Vertex maxV{ 0., 0., 0. }, minV{ fltMax, fltMax, fltMax };
+    for (auto& modelName : modelNames) {
+        std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL(modelName.c_str()));
+        std::cout << geometry->first.size() << "\n";
+        for (auto& vertex : geometry->first) // find bounding box
+        {
+            maxV = glm::max(vertex, maxV);
+            minV = glm::min(vertex, minV);
+        }
+        masterAssembly.push_back(geometry);
     }
     glm::vec3 dims = maxV - minV;
-	Vertex::value_type maxDim = std::max({ dims.x, dims.y, dims.z });
+    Vertex::value_type maxDim = std::max({ dims.x, dims.y, dims.z });
 
     // Size the model so that the requested number of repeats fits in width.
 	float targetModelWidth = float(width) / float(repeats);
     glm::vec3 scale_factor = { targetModelWidth, targetModelWidth, targetModelWidth };
-	for (auto& vertex : geometry->first) {
-		vertex = (vertex - minV) / maxDim * scale_factor;
-	}
-	std::cout << glm::to_string(minV) << std::endl;
-	std::cout << glm::to_string(maxV) << std::endl;
+    for (auto model : masterAssembly) {
+        for (auto& vertex : model->first) {
+            vertex = (vertex - minV) / maxDim * scale_factor;
+        }
+    }
 
     // replicate the model for all repeats, moving the vertices accordingly.
     // This might be handled with a transform later, but not now.
 	std::vector<std::shared_ptr<Model>> duplicateModels;
 	for (unsigned int row = 0; row < repeats; ++row) {
 		for (unsigned int col = 0; col < repeats; ++col) {
-			std::shared_ptr<Model> model_ptr{ new Model{ *geometry } };
-			duplicateModels.push_back(model_ptr);
+            for (auto model : masterAssembly) {
+                std::shared_ptr<Model> model_ptr{ new Model{ *model } };
+                duplicateModels.push_back(model_ptr);
 
-			for (auto& vertex : duplicateModels.back()->first) {
-				vertex.x += targetModelWidth * col;
-				vertex.y += targetModelWidth * row;
-			}
+                for (auto& vertex : duplicateModels.back()->first) {
+                    vertex.x += targetModelWidth * col;
+                    vertex.y += targetModelWidth * row;
+                }
+            }
 		}
 	}
 
     // ------   Scene is ready, now process it. ------------ //
+
+    // Initialise GLFW
+    glewExperimental = true; // Needed for core profile
+    if (!glfwInit())
+    {
+        std::cerr << "Failed to initialize GLFW\n";
+        return -1;
+    }
 
     // Start the render server:
     Ashigaru::RenderServer server(tile_width, tile_height);
