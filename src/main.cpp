@@ -70,10 +70,13 @@ int main(int argc, char **argv) {
     std::vector<std::shared_ptr<Model>> masterAssembly;
 
     float fltMax = std::numeric_limits<float>::max();
+    size_t assemblyVertCount = 0;
     Vertex maxV{ 0., 0., 0. }, minV{ fltMax, fltMax, fltMax };
     for (auto& modelName : modelNames) {
         std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL(modelName.c_str()));
-        std::cout << geometry->first.size() << "\n";
+        std::cout << geometry->first.size() << std::endl;
+        assemblyVertCount += geometry->first.size();
+
         for (auto& vertex : geometry->first) // find bounding box
         {
             maxV = glm::max(vertex, maxV);
@@ -81,6 +84,8 @@ int main(int argc, char **argv) {
         }
         masterAssembly.push_back(geometry);
     }
+    std::cout << "Assembly total vertex count: " << assemblyVertCount << std::endl;
+
     glm::vec3 dims = maxV - minV;
     Vertex::value_type maxDim = std::max({ dims.x, dims.y, dims.z });
 
