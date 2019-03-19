@@ -29,6 +29,7 @@ int main(int argc, char **argv) {
             "Model vertices are assumed to be in assembly coordinates. "
             "Can be a single STL file name instead (detected by extension).")
         ("repeats", po::value<unsigned int>()->default_value(1u), "The model will be repeated this many columns and this many rows.")
+        ("single", "Merge all repeats to a single object (reduce draw calls).")
         ("img-size", po::value<unsigned int>()->default_value(2048u), "Side of square image generated.")
         ("tile-size", po::value<unsigned int>()->default_value(1024u), "Side of square tile for rendering.")
         ("slice", po::value<size_t>()->default_value(0u), "If given, do this slice with PNG outputs. Otherwise perform a no-output benchmark")
@@ -53,6 +54,7 @@ int main(int argc, char **argv) {
     unsigned int tile_width = vm["tile-size"].as<unsigned int>();
     unsigned int tile_height = tile_width;
     unsigned int repeats = vm["repeats"].as<unsigned int>();
+    bool singleObject = vm.count("single") != 0;
 
     // Determine which models to load.
     std::vector<std::string> modelNames;
@@ -114,6 +116,26 @@ int main(int argc, char **argv) {
             }
 		}
 	}
+
+    // If user requested, merge the transformed objects to one:
+    if (singleObject) {
+        std::shared_ptr<Model> monster = std::make_shared<Model>();
+
+        for (auto model : duplicateModels) {
+            auto& vertices = monster->first;
+            size_t offset = vertices.size();
+            vertices.insert(vertices.end(), model->first.cbegin(), model->first.cend());
+
+            // This part wasn't really tested.
+            auto& faces = monster->second;
+            std::transform(model->second.begin(), model->second.end(), std::back_inserter(faces),
+                [offset](Triangle t) { return Triangle{t[0] + offset, t[1] + offset, t[2] + offset}; }
+            );
+        }
+
+        duplicateModels = { monster };
+    }
+
 
     // ------   Scene is ready, now process it. ------------ //
 
