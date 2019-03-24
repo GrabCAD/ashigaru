@@ -1,4 +1,4 @@
-
+#include <iostream>
 #include "triple_action.h"
 #include "geometry.h"
 
@@ -13,7 +13,7 @@ TripleAction::TripleAction(unsigned int width, unsigned int height)
 }
 
 void TripleAction::InitGL() {
-    m_height_program = LoadShaders("shaders/vertex.glsl", nullptr, "shaders/height_geom.glsl");
+    m_height_program = LoadShaders("shaders/vertex.glsl", "shaders/height_frag.glsl", "shaders/height_geom.glsl");
     m_stencil_program = LoadShaders("shaders/vertex.glsl", nullptr, nullptr);
     m_color_program = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl", nullptr);
     
@@ -21,14 +21,23 @@ void TripleAction::InitGL() {
     // This needs to be seriously benchmarked.
     glGenFramebuffers(1, &m_height_fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
-
+    
+    // Depth buffer:
     GLuint render_buf;
-    glGenRenderbuffers(1, &render_buf);    
+    glGenRenderbuffers(1, &render_buf);
     glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
     
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, m_width, m_height);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
     
+    // Height buffer:
+    glGenRenderbuffers(1, &render_buf);
+    glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+    
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA16, m_width, m_height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, render_buf);
+    
+    // Finish without side effects:
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
 }
@@ -77,6 +86,10 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
     glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
+    glEnableVertexAttribArray(pos_attribute + 1);
+    glBindBuffer(GL_ARRAY_BUFFER, IDBufferID);
+    glVertexAttribPointer(pos_attribute + 1, 1, GL_UNSIGNED_SHORT, GL_FALSE, 0, (void*)0);
+    
     glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
     glUseProgram(m_height_program);
     
@@ -88,11 +101,13 @@ std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glClearDepth(1.0);
-    glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, num_verts);
     
+    glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
     ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT));
+    ret.push_back(CommitBufferAsync(GL_COLOR_ATTACHMENT0, 2, GL_RED, GL_UNSIGNED_SHORT));
     
     return ret;
 }
