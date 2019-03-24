@@ -170,8 +170,8 @@ TiledView::TiledView(
     }
 
     VertexBucketTable buckets;
-    VertexCountTable vert_counts;
     for (auto model : m_models) {
+        VertexCountTable vert_counts;
         BucketTouchingFaces(*model, m_full_width, m_full_height, m_tile_width, m_tile_height, buckets, vert_counts);
 
         for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
@@ -186,7 +186,7 @@ TiledView::TiledView(
                 }
 
                 if (vert_counts[htile][wtile] > 0)
-                    m_tiles[tileIx].vertices.AddModelIndex(start, start + vert_counts[htile][wtile]);
+                    m_tiles[tileIx].vertices.AddModelIndex(start, vert_counts[htile][wtile]);
             }
         }
     }
