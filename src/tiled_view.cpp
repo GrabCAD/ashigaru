@@ -60,50 +60,83 @@ static void SetPromisesWhenDone(
         promises[image]->set_value(std::unique_ptr<char>(image_bufs[image]));
 }
 
-/* TakeTouchingFaces() records all vertices of a model that belong to a face 
- * incident on a given tile.
+/* BucketTouchingFaces() records all vertices of a model that belong to a face 
+ * incident on each tile, in a per-tile data structure.
  * 
  * Arguments:
  * model - containing the vertex and face info.
- * region - the tile corners.
- * taken_verts - output. Vertices are appended to the back.
- * 
+ * img_width, img_height, tile_width, tile_height - image and tile pixel width,
+ *     respectively. Used to determine number of equal-size tiles in each dimention.
+ * taken_verts - output. triple level vector, indexes are [row][column][vertex].
+ *     Vertices are appended to the back.
+ * num_taken - output. 2-level vector, [row][col], the number of vertices of
+ *     the current model that fall in tile [row][col]
+  * 
  * Returns:
  * number of vertices taken.
  */
-static unsigned int TakeTouchingFaces(
-    const Model& model, const Rect<unsigned int> region, std::vector<Vertex>& taken_verts)
+using VertexBucketTable = std::vector<std::vector<std::vector<Vertex>>>; // vector for rows, vector for cols, vector for vertices.
+using VertexCountTable = std::vector<std::vector<size_t>>;
+static void BucketTouchingFaces(
+    const Model& model, unsigned int img_width, unsigned int img_height, unsigned int tile_width, unsigned int tile_height,
+    VertexBucketTable& taken_verts, VertexCountTable& num_taken)
 {
-	std::vector<bool> taken(model.first.size());
-	// Check which vertices incident on region:
-	for (size_t vertIx = 0; vertIx < model.first.size(); ++vertIx) {
-		const Vertex& vert = model.first[vertIx];
-		if (vert.x >= region.left() && vert.x <= region.right() &&
-			vert.y >= region.bottom() && vert.y <= region.top())
-		{
-			taken[vertIx] = true;
-		}
-	}
-	// Complete marking vertices of faces that have one touching vertex.
-	for (const Triangle& face : model.second) {
-		bool touch = std::any_of(
-			face.begin(), face.end(),
-			[&taken](Triangle::value_type ind) {return taken[ind]; }
-		);
-		if (touch)
-			for (auto ind : face)
-				taken[ind] = true;
-	}
+    // for now, assume img_* is an integer multiple of tile_* respectively.
+    
+    unsigned int num_cols = img_width / tile_width;
+    unsigned int num_rows = img_height / tile_height;
 
-	// Convert to vertex vector.
-	for (size_t vertIx = 0; vertIx < model.first.size(); ++vertIx) {
-		if (taken[vertIx])
-			taken_verts.push_back(model.first[vertIx]);
-	}
+    std::vector<std::vector<std::vector<bool>>> taken(num_rows);
+    if (num_taken.size() != num_rows)
+        num_taken.resize(num_rows);
+
+    for (unsigned int row = 0; row < num_rows; ++row) {
+        taken[row].resize(num_cols);
+        if (num_taken[row].size() != num_cols)
+            num_taken[row].resize(num_cols);
+
+        for (unsigned int col = 0; col < num_cols; ++col) {
+            taken[row][col].resize(model.second.size());
+            num_taken[row][col] = 0;
+        }
+    }
+
+    for (size_t faceIx = 0; faceIx < model.second.size(); ++faceIx) {
+        for (Triangle::value_type ind : model.second[faceIx]) {
+            const Vertex& vert = model.first[ind];
+
+            unsigned int col = (unsigned int)(vert.x / float(tile_width));
+            unsigned int row = (unsigned int)(vert.y / float(tile_height));
+
+            if (row < num_rows && col < num_cols && !taken[row][col][faceIx]) {
+                num_taken[row][col] += 3;
+                taken[row][col][faceIx] = true;
+            }
+        }
+    }
+
+    if (taken_verts.size() != num_rows)
+        taken_verts.resize(num_rows);
+    for (unsigned int row = 0; row < num_rows; ++row) {
+        if (taken_verts[row].size() != num_cols)
+            taken_verts[row].resize(num_cols);
+
+        for (unsigned int col = 0; col < num_cols; ++col) {
+            auto num_existing = taken_verts[row][col].size();
+            taken_verts[row][col].resize(num_existing + num_taken[row][col]);
+
+            size_t verts_recorded = num_existing;
+            for (size_t faceIx = 0; faceIx < model.second.size(); ++faceIx) {
+                if (!taken[row][col][faceIx]) continue;
+
+                for (Triangle::value_type ind : model.second[faceIx]) 
+                    taken_verts[row][col][verts_recorded++] = model.first[ind];
+            }
+        }
+    }
+	
     // Another future improvement: hold the vertices in a way more conducive to 
     // tile division. Anyway, this very suboptimal version will do for now.
-    
-    return static_cast<unsigned int>(taken_verts.size());
 }
 
 TiledView::TiledView(
@@ -122,12 +155,9 @@ TiledView::TiledView(
     glGenVertexArrays(1, &m_varray);
     glBindVertexArray(m_varray);
     
-    // Future: per-tile structures. But for now, all tiles share the same VBO.
-    GLfloat* positions = (float *)m_models[0]->first.data();
-    
     unsigned int num_width_tiles = m_full_width / m_tile_width;
     unsigned int num_height_tiles = m_full_height / m_tile_height;
-    
+
     for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
         for (unsigned int htile = 0; htile < num_height_tiles; ++htile) 
         {
@@ -139,25 +169,45 @@ TiledView::TiledView(
                 (wtile + 1)*m_tile_width,
             };
             
-            // if a face touches the tile, take all its vertices to this tile's list.
-            // Future: maybe just work with faces and glDrawElements()?
-            std::vector<Vertex> tile_verts;
-            size_t start = 0;
-            for (auto model : m_models) {
-                auto num_taken = TakeTouchingFaces(*model, tile.region, tile_verts);
-                tile.vertices.AddModelIndex(start, num_taken);
-                start += num_taken;
-            }
-            
-            GLuint vert_buf, shellIds_buf;
-            glGenBuffers(1, &vert_buf);
-            glBindBuffer(GL_ARRAY_BUFFER, vert_buf);
-            glBufferData(GL_ARRAY_BUFFER, tile_verts.size()*sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
-            tile.vertices.AddBuffer("positions", vert_buf);
-            
             m_tiles.push_back(tile);
         }
     }
+
+    VertexBucketTable buckets;
+    for (auto model : m_models) {
+        VertexCountTable vert_counts;
+        BucketTouchingFaces(*model, m_full_width, m_full_height, m_tile_width, m_tile_height, buckets, vert_counts);
+
+        for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
+            for (unsigned int htile = 0; htile < num_height_tiles; ++htile) {
+                auto tileIx = wtile * num_height_tiles + htile;
+                size_t start = 0;
+                auto& modelIndex = m_tiles[tileIx].vertices.GetModelIndex();
+
+                if (modelIndex.size() != 0) {
+                    auto& lastIndex = modelIndex[modelIndex.size() - 1];
+                    start = lastIndex.first + lastIndex.second;
+                }
+
+                if (vert_counts[htile][wtile] > 0)
+                    m_tiles[tileIx].vertices.AddModelIndex(start, vert_counts[htile][wtile]);
+            }
+        }
+    }
+
+    for (unsigned int wtile = 0; wtile < num_width_tiles; ++wtile) {
+        for (unsigned int htile = 0; htile < num_height_tiles; ++htile) {
+            std::vector<Vertex>& tile_verts = buckets[htile][wtile];
+            GLuint vert_buf;
+
+            glGenBuffers(1, &vert_buf);
+            glBindBuffer(GL_ARRAY_BUFFER, vert_buf);
+            glBufferData(GL_ARRAY_BUFFER, tile_verts.size() * sizeof(Vertex), tile_verts.data(), GL_STATIC_DRAW);
+
+            m_tiles[wtile*num_height_tiles + htile].vertices.AddBuffer("positions", vert_buf);
+        }
+    }
+
 }
 
 // Each tile result generates a Sync and PBO object. These are stored 
