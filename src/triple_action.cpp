@@ -1,0 +1,113 @@
+
+#include "triple_action.h"
+#include "geometry.h"
+
+#include <glm/gtc/matrix_transform.hpp>
+
+using namespace Ashigaru;
+
+TripleAction::TripleAction(unsigned int width, unsigned int height)
+    : m_width { width }, m_height { height } 
+{
+    
+}
+
+void TripleAction::InitGL() {
+    m_height_program = LoadShaders("shaders/vertex.glsl", nullptr, "shaders/height_geom.glsl");
+    m_stencil_program = LoadShaders("shaders/vertex.glsl", nullptr, nullptr);
+    m_color_program = LoadShaders("shaders/vertex.glsl", "shaders/frag.glsl", nullptr);
+    
+    // Prepare frame buffers for the separate renders, for convenience.
+    // This needs to be seriously benchmarked.
+    glGenFramebuffers(1, &m_height_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
+
+    GLuint render_buf;
+    glGenRenderbuffers(1, &render_buf);    
+    glBindRenderbuffer(GL_RENDERBUFFER, render_buf);
+    
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, m_width, m_height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, render_buf);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+}
+
+bool TripleAction::PrepareTile(Rect<unsigned int> tile_rect) {
+    Rect<unsigned int>::Corner tl = tile_rect.getTopLeft();
+    Rect<unsigned int>::Corner br = tile_rect.getBottomRight();
+    unsigned int tw = tile_rect.Width();
+    unsigned int th = tile_rect.Height();
+    glm::mat4 projection { glm::ortho(-(float)(tw/2), (float)(tw/2), -(float)(th/2), (float)(th/2), -2048.f, 2048.f) };
+    
+    glm::mat4 view = glm::lookAt(
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice + 1},
+        glm::vec3{0, 1, 0}
+    );
+    
+    // Since we look from below, but want the image as if viewed from above,
+    // We just mirror the X axis of the final image, so this is applied after 
+    // the orthographic projection.
+    glm::mat4 mirror_image = glm::scale(glm::mat4(1.0f), glm::vec3{-1, 1, 1});
+    m_look_up = mirror_image*projection*view;
+    
+    // Now look down from the same place:   
+    view = glm::lookAt(
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice},
+        glm::vec3{tile_rect.left() + tw/2, tile_rect.bottom() + th/2, m_slice - 1},
+        glm::vec3{0, 1, 0}
+    );
+    m_look_down = projection*view;
+        
+    return true;
+}
+
+std::vector<RenderAsyncResult> TripleAction::StartRender(VertexDB vertices) {
+    const GLuint pos_attribute = 0;
+    
+    std::vector<RenderAsyncResult> ret;
+    
+    GLuint PosBufferID = vertices.GetBuffer("positions");
+    GLuint IDBufferID = vertices.GetBuffer("shellIDs");
+    unsigned int num_verts = vertices.VertexCount();
+    
+    // Height render setup:
+    glEnableVertexAttribArray(pos_attribute);
+    glBindBuffer(GL_ARRAY_BUFFER, PosBufferID);
+    glVertexAttribPointer(pos_attribute, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, m_height_fbo);
+    glUseProgram(m_height_program);
+    
+    GLuint MatrixID = glGetUniformLocation(m_height_program, "projection");
+    glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &m_look_up[0][0]);
+    
+    // Actual drawing:
+    glViewport(0, 0, m_width, m_height);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    glClearDepth(1.0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, num_verts);
+    
+    glDisableVertexAttribArray(0);
+    ret.push_back(CommitBufferAsync(GL_DEPTH_ATTACHMENT, 2, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT));
+    
+    return ret;
+}
+
+RenderAsyncResult TripleAction::CommitBufferAsync(GLenum which, unsigned short elem_size, GLenum format,  GLenum type)
+{
+    GLuint pbo;
+    glGenBuffers(1,&pbo);
+    glBindBuffer(GL_PIXEL_PACK_BUFFER, pbo);
+    glBufferData(GL_PIXEL_PACK_BUFFER, m_width*m_height*elem_size, NULL, GL_STREAM_READ);
+    
+    // Get the depth, async.
+    glReadBuffer(which);
+    glReadPixels(0, 0, m_width, m_height, format, type, 0);
+    
+    GLsync read_fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    return std::make_pair(read_fence, pbo);
+}

@@ -11,6 +11,7 @@
 #include "geometry.h"
 #include "opengl_utils.h"
 #include "render_server.h"
+#include "triple_action.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -45,7 +46,7 @@ int main(int argc, char **argv) {
     
     // Load a model, do Q&D size-to-fit and then duplicate it.
     // the two models are the (possibly) rendered scene.
-    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/donkey.stl"));
+    std::shared_ptr<Model> geometry = std::make_shared<Model>(readBinarySTL("models/Donkey.stl"));
     Vertex maxV{ 0., 0., 0. }, minV{ 20000, 20000, 20000 };
     for (auto& vertex : geometry->first) // find bounding box
     {
@@ -70,7 +71,7 @@ int main(int argc, char **argv) {
     Ashigaru::RenderServer server(tile_width, tile_height);
     
     // Create the view we want to render:
-    Ashigaru::TestRenderAction program{tile_width, tile_height};
+    Ashigaru::TripleAction program{tile_width, tile_height};
     auto models = server.RegisterModels(std::vector<std::shared_ptr<Model>>{geometry, partner_geom});
     auto view = server.RegisterView(program, 2*width, height, models).get();
     
@@ -81,15 +82,16 @@ int main(int argc, char **argv) {
 		std::vector<std::vector<std::future<std::unique_ptr<char>>>> slices;
 
 		auto start = std::chrono::system_clock::now();
-		for (size_t slice = 0; slice < 500; ++slice) {
+		for (size_t slice = 0; slice < 100; ++slice) {
 			slices.push_back(server.ViewSlice(view, slice));
 		}
 		auto end = std::chrono::system_clock::now();
 
 		while (slices.size()) {
 			auto& slice = slices.back();
-			slice[0].get();
-			slice[1].get();
+            for (auto& map : slice)
+                map.get();
+			
 			slices.pop_back();
 		}
 		auto fullEnd = std::chrono::system_clock::now();
@@ -103,8 +105,8 @@ int main(int argc, char **argv) {
 		std::unique_ptr<char> data = std::move(res[0].get());
 		writeImage("dump.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru slice");
 
-		data = res[1].get();
-		writeImage("depth.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru depth");
+		//data = res[1].get();
+		//writeImage("depth.png", 2 * width, height, ImageType::Gray, data.get(), "Ashigaru depth");
 	}
     std::cout << "Healthy finish!" << std::endl;
     return 0;
